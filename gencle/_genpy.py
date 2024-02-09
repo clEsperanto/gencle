@@ -232,7 +232,7 @@ def _build_docstring(function_dict: dict) -> str:
     if len(links) > 0:
         links_docstring = [f'[{i+1}] {l}' for i, l in enumerate(links)]
         links_docstring = '\n\t'.join(links_docstring)
-        links_docstring = '\n    Links\n    -----\n    ' + links_docstring
+        links_docstring = '\n    References\n    ----------\n    ' + links_docstring
         
     return _docstring_code.format(brief_docstring=brief_docstring, parameters_docstring=parameters_docstring, 
                                   return_docstring=return_docstring, links_docstring=links_docstring)
