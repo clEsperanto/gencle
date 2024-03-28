@@ -33,7 +33,7 @@ def _parse_param_tag(line:str) -> dict:
 
 def _read_doxygen_block(block: str) -> dict:
     """Parse doxygen block. We are looking for doxygen tags specific to clesperanto:
-    ['name', 'priority', 'category', 'brief', 'param', 'return', 'link']
+    ['name', 'brief', 'param', 'return', 'see', 'note']
 
     Parameters
     ----------
@@ -52,10 +52,10 @@ def _read_doxygen_block(block: str) -> dict:
     priority = re.findall(r"@priority\s+(.*)", block)
 
     # get the @category tag
-    category = re.findall(r"@category\s+(.*)", block)
+    category = re.findall(r"@note\s+(.*)", block)
 
     # get the @link tag
-    link = re.findall(r"@link\s+(.*)", block)
+    link = re.findall(r"@see\s+(.*)", block)
 
     # get the @return tag
     return_type = re.findall(r"@return\s+(.*)", block)
