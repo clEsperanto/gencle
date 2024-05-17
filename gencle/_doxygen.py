@@ -60,6 +60,10 @@ def _read_doxygen_block(block: str) -> dict:
     # get the @return tag
     return_type = re.findall(r"@return\s+(.*)", block)
 
+
+    # get the @return tag
+    deprecation = re.findall(r"@deprecated\s+(.*)", block)
+
     # get the @param tag
     params = re.findall(r"@param\s+(.*)", block)
     params_list = [_parse_param_tag(p) for p in params]
@@ -70,7 +74,7 @@ def _read_doxygen_block(block: str) -> dict:
     # print(brief) if len(brief) == 0  else None
 
     return {'name': name[0], 'priority': priority[0] if len(priority) > 0 else '', 'category': category[0] if len(category) > 0 else '', 
-            'link': link, 'return': return_type[0] if len(return_type) > 0 else '', 'parameters': params_list, 'brief': brief}
+            'link': link, 'return': return_type[0] if len(return_type) > 0 else '', 'parameters': params_list, 'deprecation': deprecation, 'brief': brief}
 
 
 def _extract_doxygen_blocks(code: str) -> list:

@@ -42,6 +42,7 @@ def {name}(
     {docstring}
     from ._pyclesperanto import _{name} as op
 
+    {deprecation_warning}
     return op(
         {parameters_bindings}
     )
@@ -56,7 +57,10 @@ _python_code = """#
 from ._core import Device
 from ._array import Image
 from ._decorators import plugin_function
+
 import numpy as np
+from typing import Optional
+import warnings
 
 {python_functions}
 """
@@ -122,7 +126,7 @@ def _cpp_type_to_python_type(c_type: str) -> str:
     # if type is Array::Pointer, replace by Image, if type is Device::Pointer, replace by Device, if type contains 'std::array' or 'std::vector', replace by list
     if 'std::array' in type or 'std::vector' in type:
         type = 'list'
-    if 'std::string' in type:
+    if 'string' in type:
         type = 'str'
     if '::Pointer' in type:
         type = type.replace('Array::Pointer', 'Image').replace('Device::Pointer', 'Device')
@@ -155,6 +159,10 @@ def _cpp_to_python_argument(c_parameter: dict, extended: bool = False) -> str:
     if type == 'Device':
         default = f' = None'
 
+    # add Optional if default value is set
+    if default == ' = None':
+        type = f'Optional[{type}]'
+
     c_description = c_parameter['description']
     description = f"\n        {c_description}" if len(c_description) > 0 else ""
 
@@ -181,10 +189,14 @@ def _cpp_to_python_bindings(c_parameter: dict) -> str:
     """
     c_name = c_parameter['name']
     c_type = c_parameter['type']
+    default_value = c_parameter['default_value']
+
 
     py_name = c_name.replace('src', 'input_image').replace('dst', 'output_image')
     if c_type in ['int', 'float', 'bool']:
         py_name = f'{c_type}({py_name})'
+        if default_value == 'None':
+            py_name = py_name + f' if {c_name} is not None else None'
     bindings = f'{c_name}={py_name}'
     return bindings
 
@@ -296,13 +308,17 @@ def _generate_python_function_code(function_dict: dict) -> str:
     docstring = _build_docstring(function_dict)
     decorator_defines = _generate_decorator_code(function_dict)
 
+    deprecation_warning = ''
+    if len(function_dict['deprecation']) > 0:
+        deprecation_warning = f"warnings.warn(\"{name} : {function_dict['deprecation'][0]}\", DeprecationWarning)"
+
     # priority = function_dict['priority']
     # category = function_dict['category']
     # decorator_defines = ''
 
     return _python_func_code.format(decorator_defines=decorator_defines, name=name, 
                                     parameters_defines=parameters_defines, return_type=return_type, 
-                                    docstring=docstring, parameters_bindings=parameters_bindings)
+                                    docstring=docstring, parameters_bindings=parameters_bindings, deprecation_warning=deprecation_warning)
 
 
 def generate_python_code(tier: int, function_list: list) -> str:
