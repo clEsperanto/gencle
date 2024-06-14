@@ -1,3 +1,5 @@
+# This module is in charge of generating the source code for the clesperanto Python bindings. 
+
 import textwrap
 
 

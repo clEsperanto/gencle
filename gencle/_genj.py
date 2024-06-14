@@ -1,7 +1,5 @@
-import textwrap
+# This module is in charge of generating the source code for the clesperanto Java bindings. 
 
-# This is a Python module in charge of generating the Java source code for the 
-# clesperanto Java bindings. It is called by the gencle.py script.
 
 native_func_code_template = """
 {return_type} Tier{tier}::{func_name}({argument_list})
@@ -13,7 +11,7 @@ native_func_code_template = """
 native_func_header_template = """static {return_type} {func_name}({argument_list});"""
 
 def generate_arguments( args ):
-    """ args is a list of dictionaries, each dict has the field `name`, `type`, `default_value`, and `description` """
+    """ args is a list of dictionaries, each dict has the field `name`, `type`, `default_value`, `description` and 'default' """
 
     argument_list = []
     for arg in args:
@@ -21,6 +19,7 @@ def generate_arguments( args ):
         arg_name = arg["name"]
         arg_type = arg["type"]
         arg_call = arg["name"]
+        arg_default = arg["default_value"]
 
         if "Device::Pointer" in arg_type:
             arg_type = arg_type.replace("Device::Pointer", "DeviceJ"   )
@@ -29,12 +28,14 @@ def generate_arguments( args ):
             arg_type = arg_type.replace("Array::Pointer", "ArrayJ"   )
             arg_call = f"{arg_call}.get()"
 
-        argument_list.append({"name": arg_name, "type": arg_type, "call": arg_call})
+        argument_list.append({"name": arg_name, "type": arg_type, "call": arg_call, "default": arg_default})
     return argument_list
 
 
 def generate_native_full( tier, function_dict ):
-
+    """ Generates the code for the full version of the native function. This version has all the arguments and the return type.
+        It returns the header and the source code of the function.
+    """
     argument_dict = generate_arguments( function_dict["parameters"] )
     return_type = function_dict["return"].replace("Device::Pointer", "DeviceJ").replace("Array::Pointer", "ArrayJ")
 
@@ -56,7 +57,9 @@ def generate_native_full( tier, function_dict ):
     
 
 def generate_native_short( tier, function_dict ):
-
+    """ Generates the code for the short version of the native function. This version does not have 'dst' in argument.
+        It returns the header and the source code of the function.
+    """
     argument_dict = generate_arguments( function_dict["parameters"] )
     return_type = function_dict["return"].replace("Device::Pointer", "DeviceJ").replace("Array::Pointer", "ArrayJ")
 
@@ -64,11 +67,11 @@ def generate_native_short( tier, function_dict ):
     argument_call = []
     for arg in argument_dict:
         arg_string = arg["type"] + " " + arg["name"]
-        if arg["name"] != "dst" and arg["name"] != "dst1":
+        if "dst" in arg["name"] and "None" in arg["default"]:
+            argument_call.append("nullptr")
+        else:
             argument_list.append(arg_string)
             argument_call.append(arg["call"])
-        else:
-            argument_call.append("nullptr")
     argument_list = ", ".join(argument_list)
     argument_call = ", ".join(argument_call)
     
@@ -81,6 +84,7 @@ def generate_native_short( tier, function_dict ):
 
 
 def generate_tier_code( tier, functions ):
+    """ For a given tier and list of dictionary describing the functions, it generates the header and source code for the tier."""
     class_header_template = """
 class Tier{tier}
 {{
@@ -121,16 +125,16 @@ public:
 
 
 def merger_header( header_list ):
-
+    """ Merges the header code into one header."""
     header_file = """
-#ifndef __INCLUDE_KERNELJ_HPP
-#define __INCLUDE_KERNELJ_HPP
+#ifndef __INCLUDE_KERNEL_HPP
+#define __INCLUDE_KERNEL_HPP
 
 #include "clesperantoj.hpp"
 
 {header_str}
 
-#endif // __INCLUDE_KERNELJ_HPP
+#endif // __INCLUDE_KERNEL_HPP
 """    
     
     header_str = "\n".join(header_list)
