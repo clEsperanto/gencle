@@ -56,13 +56,14 @@ _python_code = """#
 # Do not edit manually.
 #
 
-from ._core import Device
-from ._array import Image
-from ._decorators import plugin_function
+import warnings
+from typing import Optional
 
 import numpy as np
-from typing import Optional
-import warnings
+
+from ._array import Image
+from ._core import Device
+from ._decorators import plugin_function
 
 {python_functions}
 """
