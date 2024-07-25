@@ -1,59 +1,74 @@
 # This module is in charge of generating the source code for the clesperanto Java bindings. 
 
+#
+# The following functions are used to generate the native code for the Java bindings.
+#
 
-native_func_code_template = """
+def __cpp_return_guard(parameter: str):
+    mapping = {
+        "Array::Pointer": ("ArrayJ", "ArrayJ{", "}")
+    }
+    return mapping.get(parameter, (parameter, "", ""))
+
+
+
+def _cpp_function_parameters(parameters):
+    def _replace_type(param_type):
+        replacements = {
+            "const ": "",
+            "&": "",
+            "Device::Pointer": "DeviceJ *",
+            "Array::Pointer": "ArrayJ *",
+            "std::string": "String"
+        }
+        for old, new in replacements.items():
+            param_type = param_type.replace(old, new)
+        return param_type
+    
+    function_parameters = []
+    for p in parameters:
+        param_name = p["name"]
+        param_type = _replace_type(p["type"])
+        function_parameters.append(f"{param_type} {param_name}")
+    return ", ".join(function_parameters)
+
+
+def _cpp_call_parameters(parameters):
+    def _is_pointer_type(param_type):
+        return "::Pointer" in param_type
+
+    def _generate_param_call(param_name, param_type, default_value):
+        param_call = "->get()" if _is_pointer_type(param_type) else ""
+        if default_value == "None" and _is_pointer_type(param_type):
+            return f'{param_name} == nullptr ? nullptr : {param_name}{param_call}'
+        return f"{param_name}{param_call}"
+    
+    native_call = []
+    for p in parameters:
+        cpp_parameter_call = _generate_param_call(p["name"], p["type"], p["default_value"])
+        native_call.append(cpp_parameter_call)
+    return ", ".join(native_call)
+
+
+def _generate_native_functions( tier, function_dict ):
+    native_func_code_template = """
 {return_type} Tier{tier}::{func_name}({argument_list})
 {{
-    return {return_type}{{ cle::tier{tier}::{func_name}_func({argument_call}) }};
+    return {return_prefix}cle::tier{tier}::{func_name}_func({argument_call}){return_suffix};
 }}
 """
+    native_func_header_template = """static {return_type} {func_name}({argument_list});"""
 
-native_func_header_template = """static {return_type} {func_name}({argument_list});"""
-
-def _generate_arguments( args ):
-    """ args is a list of dictionaries, each dict has the field `name`, `type`, `default_value`, `description` and 'default' """
-
-    argument_list = []
-    for arg in args:
-        
-        arg_name = arg["name"]
-        arg_type = arg["type"]
-        arg_call = arg["name"]
-        arg_default = arg["default_value"]
-
-        if "Device::Pointer" in arg_type:
-            arg_type = arg_type.replace("Device::Pointer", "DeviceJ"   )
-            arg_call = f"{arg_call}.get()"
-        if "Array::Pointer" in arg_type:
-            arg_type = arg_type.replace("Array::Pointer", "ArrayJ"   )
-            arg_call = f"{arg_call}.get()"
-
-        argument_list.append({"name": arg_name, "type": arg_type, "call": arg_call, "default": arg_default})
-    return argument_list
-
-
-def _generate_native_full( tier, function_dict ):
-    """ Generates the code for the full version of the native function. This version has all the arguments and the return type.
-        It returns the header and the source code of the function.
-    """
-    argument_dict = _generate_arguments( function_dict["parameters"] )
-    return_type = function_dict["return"].replace("Device::Pointer", "DeviceJ").replace("Array::Pointer", "ArrayJ")
-
-    argument_list = []
-    argument_call = []
-    for arg in argument_dict:
-        arg_string = arg["type"] + " " + arg["name"]
-        argument_list.append(arg_string)
-        argument_call.append(arg["call"])
-    argument_list = ", ".join(argument_list)
-    argument_call = ", ".join(argument_call)
-    
-    code = native_func_code_template.format(return_type=return_type, tier=tier, func_name=function_dict["name"],
-                                                argument_list=argument_list, argument_call=argument_call)
-    header = native_func_header_template.format(return_type=return_type, func_name=function_dict["name"],
+    func_name = function_dict["name"]
+    return_type, return_prefix, return_suffix = __cpp_return_guard(function_dict["return"])
+    argument_list = _cpp_function_parameters(function_dict["parameters"])
+    argument_call = _cpp_call_parameters(function_dict["parameters"])
+    cpp_native = native_func_code_template.format(return_type=return_type, tier=tier, func_name=func_name,
+                                                argument_list=argument_list, argument_call=argument_call,
+                                                return_prefix=return_prefix, return_suffix=return_suffix)
+    cpp_header = native_func_header_template.format(return_type=return_type, func_name=func_name,
                                                 argument_list=argument_list)
-    
-    return code, header
+    return cpp_native, cpp_header
 
 
 def generate_native_tier_code( tier, functions ):
@@ -75,7 +90,7 @@ public:
     functions_headers = []
     functions_code = []
     for func in functions:
-        code_full, header_full = _generate_native_full( tier, func )
+        code_full, header_full = _generate_native_functions( tier, func )
 
         func_header_str = "".join(header_full)
         functions_headers.append(func_header_str)
@@ -92,7 +107,7 @@ public:
     return header, code
 
 
-def merger_header( header_list ):
+def merger_classes_in_header( header_list ):
     """ Merges the header code into one header."""
     header_file = """
 #ifndef __INCLUDE_KERNEL_HPP
@@ -108,125 +123,98 @@ def merger_header( header_list ):
     header_str = "\n".join(header_list)
     return header_file.format(header_str=header_str)
 
+#
+# The following functions are used to generate the java code for the Java bindings.
+#
 
-def _snake_to_camel(snake_str):
+def _java_snake_to_camel(snake_str):
     components = snake_str.split('_')
     return components[0] + ''.join(x.title() for x in components[1:])
 
-# def _generate_java_function(function_dict):
-#     function_template = """
-# 	public static {return_type_1} {java_function_name}({java_function_parameters}) {{
-# 		{parameter_null_checks} 
-#             {dst_null_checks}
-# 		return {return_type_2}(net.clesperanto._internals.kernelj.Tier{tier_idx}.{native_function_name}({native_function_parameters});
-# 	}}
-#     """
 
-#     tier_idx = str(0)
+def _java_null_check(parameters):
+    null_checks = [
+        f'Objects.requireNonNull({p["name"]}, "{p["name"]} cannot be null");'
+        for p in parameters
+        if "const" in p["type"] and "::Pointer" in p["type"]
+    ]
+    return "\n\t\t".join(null_checks)
 
-#     native_function_name = function_dict[0]["name"]
-#     java_function_name = _snake_to_camel(native_function_name)
 
-#     return_type_1 = function_dict[0]["return"]
-#     return_type_2 = return_type_1
-#     if return_type_1 == "Array::Pointer" :
-#         return_type_1 = "ArrayJ"
-#         return_type_2 = "new ArrayJ"
-
-#     null_check = []
-#     dst_null_check = []
-#     java_function_parameters = []
-#     native_function_parameters = []
-#     for param in function_dict[0]["parameters"]:
-
-        
-#         param_call = ""
-#         param_type = param["type"]
-#         if param_type.find("Device::Pointer") != -1:
-#             param_type = "DeviceJ"
-#             param_call = f".getRaw()"
-#         elif param_type.find("Array::Pointer") != -1:
-#             param_type = "ArrayJ"
-#             param_call = f".getRaw()"
-#         elif param_type.find("std::vector") != -1:
-#             param_type = "ArrayList<Float>"
+def _java_function_parameters(parameters):
+    def _replace_java_type(param_type):
+        replacements = {
+            "const ": "",
+            "&": "",
+            "Device::Pointer": "DeviceJ",
+            "Array::Pointer": "ArrayJ",
+            "std::string": "String"
+        }
+        for old, new in replacements.items():
+            param_type = param_type.replace(old, new)
+        return param_type
+    
+    function_parameters = []
+    for p in parameters:
+        param_name = p["name"]
+        param_type = _replace_java_type(p["type"])
+        function_parameters.append(f"{param_type} {param_name}")
+    return ", ".join(function_parameters)
 
 
 
-#         param_name = param["name"]
-#         if param_name.find("src") != -1:
-#             param_name = param_name.replace("src", "input")
-#         elif param_name.find("dst") != -1:
-#             param_name = param_name.replace("dst", "output")
+def _java_call_parameters(parameters):
+    def _is_pointer_type(param_type):
+        return "::Pointer" in param_type
 
-#         if param["type"].find("const") != -1 and param["type"].find("::Pointer") != -1:
-#             null_check.append(f'Objects.requireNonNull({param_name}, "{param_name} cannot be null");')
-#         if param["default_value"] == "None" and param["type"].find("::Pointer") != -1:
-#             dst_null_check.append(f'{param_type} {param_name} = {param_name} == null ? null : {param_name}{param_call};')
-
-        
-#         java_function_parameters += [f"{param_type} {param_name}"] 
-#         native_function_parameters += [f"{param_name}{param_call}"]
-
-#     parameter_null_checks = "\n\t\t".join(null_check)
-#     dst_null_checks = "\n\t\t".join(dst_null_check)
-#     java_function_parameters = ", ".join(java_function_parameters)
-#     native_function_parameters = ", ".join(native_function_parameters)
+    def _generate_java_param_call(param_name, param_type, default_value):
+        param_call = ".getRaw()" if _is_pointer_type(param_type) else ""
+        if default_value == "None" and _is_pointer_type(param_type):
+            return f'{param_name} == null ? null : {param_name}{param_call}'
+        return f"{param_name}{param_call}"
+    
+    native_call = []
+    for p in parameters:
+        cpp_parameter_call = _generate_java_param_call(p["name"], p["type"], p["default_value"])
+        native_call.append(cpp_parameter_call)
+    return ", ".join(native_call)
 
 
-#     return function_template.format(java_function_name=java_function_name, return_type_1=return_type_1, return_type_2=return_type_2, tier_idx=tier_idx, native_function_name=native_function_name, java_function_parameters=java_function_parameters, native_function_parameters=native_function_parameters,dst_null_checks=dst_null_checks, parameter_null_checks=parameter_null_checks)
+def _java_return_guard(parameter):
+    mapping = {
+        "Array::Pointer": ("ArrayJ", "new ArrayJ(", ", device)")
+    }
+    return mapping.get(parameter, (parameter, "", ""))
 
 
 def _generate_java_function(tier_idx, function_dict):
     function_template = """
-    public static {return_type_1} {java_function_name}({java_function_parameters}) {{
+    public static {return_type} {java_function_name}({function_parameters}) {{
         {parameter_null_checks}
-        {dst_null_checks}
-        return {return_type_2}(net.clesperanto._internals.kernelj.Tier{tier_idx}.{native_function_name}({native_function_parameters}));
+        return {return_prefix}net.clesperanto._internals.kernelj.Tier{tier_idx}.{native_function_name}({call_parameters}){return_suffix};
     }}
     """
     native_function_name = function_dict["name"]
-    java_function_name = _snake_to_camel(native_function_name)
-
-    return_type = function_dict["return"]
-    return_type_1, return_type_2 = ("ArrayJ", "new ArrayJ") if return_type == "Array::Pointer" else (return_type, "")
-
-    null_checks, dst_null_checks, java_params, native_params = [], [], [], []
-
-    for param in function_dict["parameters"]:
-        param_type = param["type"].replace("Device::Pointer", "DeviceJ").replace("Array::Pointer", "ArrayJ").replace("const ", "").replace("&", "")
-        param_call = ".getRaw()" if "Pointer" in param["type"] else ""
-        param_type = "ArrayList<Float>" if "std::vector" in param_type else param_type
-
-        param_name = param["name"].replace("src", "input").replace("dst", "output")
-        if "const" in param["type"] and "::Pointer" in param["type"]:
-            null_checks.append(f'Objects.requireNonNull({param_name}, "{param_name} cannot be null");')
-        if param["default_value"] == "None" and "::Pointer" in param["type"]:
-            dst_null_checks.append(f'{param_name} = {param_name} == null ? null : {param_name}{param_call};')
-            param_call = ""
-
-        java_params.append(f"{param_type} {param_name}")
-        native_params.append(f"{param_name}{param_call}")
-
-    parameter_null_checks = "\n\t\t".join(null_checks)
-    dst_null_checks_str = "\n\t\t".join(dst_null_checks)
-    java_function_parameters = ", ".join(java_params)
-    native_function_parameters = ", ".join(native_params)
-
-    return function_template.format(
+    java_function_name = _java_snake_to_camel(function_dict["name"])
+    return_type, return_prefix, return_suffix = _java_return_guard(function_dict["return"])
+    parameter_null_checks = _java_null_check(function_dict["parameters"])
+    function_parameters = _java_function_parameters(function_dict["parameters"])
+    call_parameters = _java_call_parameters(function_dict["parameters"])
+    function = function_template.format( 
+        return_type=return_type,
         java_function_name=java_function_name,
-        return_type_1=return_type_1,
-        return_type_2=return_type_2,
         tier_idx=tier_idx,
         native_function_name=native_function_name,
-        java_function_parameters=java_function_parameters,
-        native_function_parameters=native_function_parameters,
-        dst_null_checks=dst_null_checks_str,
-        parameter_null_checks=parameter_null_checks
+        function_parameters=function_parameters,
+        parameter_null_checks=parameter_null_checks,
+        call_parameters=call_parameters,
+        return_prefix=return_prefix,
+        return_suffix=return_suffix
     )
+    return function.replace("src", "input").replace("dst", "output")
 
 
-def _generate_java_class(tier_idx, functions):
+def generate_java_class(tier_idx, functions):
     class_template = """
 package net.clesperanto.kernels;
 
@@ -242,7 +230,5 @@ public class Tier{tier_idx} {{
 {functions}
 }}
 """
-
     functions_str = "".join([_generate_java_function(tier_idx, function) for function in functions])
-
     return class_template.format(tier_idx=tier_idx, functions=functions_str)
