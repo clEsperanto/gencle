@@ -27,8 +27,8 @@ def _cpp_function_parameters(parameters):
     
     function_parameters = []
     for p in parameters:
-        param_name = p["name"]
-        param_type = _replace_type(p["type"])
+        param_name = p["name"].strip()
+        param_type = _replace_type(p["type"]).strip()
         function_parameters.append(f"{param_type} {param_name}")
     return ", ".join(function_parameters)
 
@@ -146,9 +146,13 @@ def _java_function_parameters(parameters):
         replacements = {
             "const ": "",
             "&": "",
+            "*": "",
             "Device::Pointer": "DeviceJ",
             "Array::Pointer": "ArrayJ",
-            "std::string": "String"
+            "std::string": "String",
+            "std::vector<float>": "ArrayList<Float>",
+            "std::vector<int>": "ArrayList<Integer>",
+            "std::vector<ArrayJ>": "ArrayList<ArrayJ>"
         }
         for old, new in replacements.items():
             param_type = param_type.replace(old, new)
@@ -156,8 +160,8 @@ def _java_function_parameters(parameters):
     
     function_parameters = []
     for p in parameters:
-        param_name = p["name"]
-        param_type = _replace_java_type(p["type"])
+        param_name = p["name"].strip()
+        param_type = _replace_java_type(p["type"].strip()).strip()
         function_parameters.append(f"{param_type} {param_name}")
     return ", ".join(function_parameters)
 
@@ -175,7 +179,7 @@ def _java_call_parameters(parameters):
     
     native_call = []
     for p in parameters:
-        cpp_parameter_call = _generate_java_param_call(p["name"], p["type"], p["default_value"])
+        cpp_parameter_call = _generate_java_param_call(p["name"].strip(), p["type"].strip(), p["default_value"].strip())
         native_call.append(cpp_parameter_call)
     return ", ".join(native_call)
 
@@ -188,8 +192,7 @@ def _java_return_guard(parameter):
 
 
 def _generate_java_function(tier_idx, function_dict):
-    function_template = """
-    public static {return_type} {java_function_name}({function_parameters}) {{
+    function_template = """    public static {return_type} {java_function_name}({function_parameters}) {{
         {parameter_null_checks}
         return {return_prefix}net.clesperanto._internals.kernelj.Tier{tier_idx}.{native_function_name}({call_parameters}){return_suffix};
     }}
@@ -214,6 +217,79 @@ def _generate_java_function(tier_idx, function_dict):
     return function.replace("src", "input").replace("dst", "output")
 
 
+
+def _generate_java_docstring(function_dict):
+
+    def _replace_java_type(param_type):
+        replacements = {
+            "const ": "",
+            "&": "",
+            "*": "",
+            "Device::Pointer": "DeviceJ",
+            "Array::Pointer": "ArrayJ",
+            "std::string": "String",
+            "std::vector<float>": "ArrayList<Float>",
+            "std::vector<int>": "ArrayList<Integer>",
+            "std::vector<ArrayJ>": "ArrayList<ArrayJ>"
+        }
+        for old, new in replacements.items():
+            param_type = param_type.replace(old, new)
+        return param_type
+    
+    docstring_template = """
+\t/**
+{brief_docstring}
+{parameters_docstring}
+{return_docstring}{links_docstring}
+{throw}
+\t */"""
+
+
+    name = function_dict["name"]
+    priority = function_dict['priority']
+    category = function_dict['category']
+    links = function_dict['link']
+    brief_docstring = function_dict['brief']
+    
+    # add a return line at the end of each sentence in the brief docstring
+    brief_docstring = brief_docstring.split(".")
+    # remove empty strings and strip whitespaces from the beginning and end of each sentence
+    brief_docstring = [s.strip() for s in brief_docstring if s]
+    # add a * at the beginning of each sentence and join them with a newline
+    brief_docstring = ".\n\t * ".join(brief_docstring)
+    brief_docstring = f"\t * {brief_docstring}."
+
+
+
+    return_type =  _replace_java_type(function_dict['return'])
+
+    # format each link in links to a javadoc link format
+    links_docstring = ""
+    if links:
+        links_docstring = "\n\t * @see " + "\n\t * @see ".join(links)
+
+    parameters = function_dict['parameters']
+    parameters_docstring = []
+    for p in parameters:
+        p_name = p['name'].replace("src", "input").replace("dst", "output")
+        p_type = _replace_java_type(p['type']).strip()
+        p_description = p['description']
+        p_default = p['default_value']
+        parameters_docstring.append(f"\t * @param {p_name} ({p_type}) - {p_description}" + ( f" (default: {p_default})" if p_default != "" else "" ))
+    parameters_docstring = "\n".join(parameters_docstring)
+
+    return_docstring = f"\t * @return {return_type}"
+
+    throw = "\t * @throws NullPointerException if any of the device or input parameters are null."
+
+    docstring = docstring_template.format(brief_docstring=brief_docstring, parameters_docstring=parameters_docstring, return_docstring=return_docstring, links_docstring=links_docstring, throw=throw)
+
+    docstring = docstring.replace("ArrayJ", "{@link ArrayJ}")
+    docstring = docstring.replace("DeviceJ", "{@link DeviceJ}")
+
+    return docstring
+
+
 def generate_java_class(tier_idx, functions):
     class_template = """
 package net.clesperanto.kernels;
@@ -230,5 +306,14 @@ public class Tier{tier_idx} {{
 {functions}
 }}
 """
-    functions_str = "".join([_generate_java_function(tier_idx, function) for function in functions])
+
+
+    func_list = []
+    for function in functions:
+        docstring = _generate_java_docstring(function)
+        code = _generate_java_function(tier_idx, function)
+        func_list.append(docstring +"\n"+ code)
+    functions_str = "".join(func_list)
+
+    # functions_str = "".join([_generate_java_function(tier_idx, function) for function in functions])
     return class_template.format(tier_idx=tier_idx, functions=functions_str)
