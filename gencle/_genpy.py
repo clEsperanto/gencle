@@ -133,6 +133,8 @@ def _cpp_type_to_python_type(c_type: str) -> str:
         type = 'str'
     if '::Pointer' in type:
         type = type.replace('Array::Pointer', 'Image').replace('Device::Pointer', 'Device')
+    if 'StatisticsMap' in type:
+        type = 'dict'
     return type.strip()
 
 
