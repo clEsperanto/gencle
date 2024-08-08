@@ -152,7 +152,8 @@ def _java_function_parameters(parameters):
             "std::string": "String",
             "std::vector<float>": "ArrayList<Float>",
             "std::vector<int>": "ArrayList<Integer>",
-            "std::vector<ArrayJ>": "ArrayList<ArrayJ>"
+            "std::vector<ArrayJ>": "ArrayList<ArrayJ>",
+            "bool": "boolean",
         }
         for old, new in replacements.items():
             param_type = param_type.replace(old, new)
@@ -175,6 +176,8 @@ def _java_call_parameters(parameters):
         param_call = ".getRaw()" if _is_pointer_type(param_type) else ""
         if default_value == "None" and _is_pointer_type(param_type):
             return f'{param_name} == null ? null : {param_name}{param_call}'
+        if param_type.find("std::vector<float>") != -1:
+            return f"Utils.toVector({param_name})"
         return f"{param_name}{param_call}"
     
     native_call = []
@@ -186,7 +189,11 @@ def _java_call_parameters(parameters):
 
 def _java_return_guard(parameter):
     mapping = {
-        "Array::Pointer": ("ArrayJ", "new ArrayJ(", ", device)")
+        "Array::Pointer": ("ArrayJ", "new ArrayJ(", ", device)"),
+        "std::vector<Array::Pointer>": ("ArrayList<ArrayJ>", "Utils.toArrayList(", ")"),
+        "std::vector<float>": ("ArrayList<Float>", "Utils.toArrayList(", ")"),
+        "StatisticsMap": ("HashMap<String, ArrayList<Float>>", "Utils.toHashMap(", ")"),
+        "bool": ("boolean", "", "")
     }
     return mapping.get(parameter, (parameter, "", ""))
 
@@ -230,7 +237,8 @@ def _generate_java_docstring(function_dict):
             "std::string": "String",
             "std::vector<float>": "ArrayList<Float>",
             "std::vector<int>": "ArrayList<Integer>",
-            "std::vector<ArrayJ>": "ArrayList<ArrayJ>"
+            "std::vector<ArrayJ>": "ArrayList<ArrayJ>",
+            "bool": "boolean",
         }
         for old, new in replacements.items():
             param_type = param_type.replace(old, new)
@@ -242,7 +250,7 @@ def _generate_java_docstring(function_dict):
 {parameters_docstring}
 {return_docstring}{links_docstring}
 {throw}
-\t */"""
+\t */{deprecated}"""
 
 
     name = function_dict["name"]
@@ -282,7 +290,11 @@ def _generate_java_docstring(function_dict):
 
     throw = "\t * @throws NullPointerException if any of the device or input parameters are null."
 
-    docstring = docstring_template.format(brief_docstring=brief_docstring, parameters_docstring=parameters_docstring, return_docstring=return_docstring, links_docstring=links_docstring, throw=throw)
+    deprecated = ""
+    if function_dict['deprecation']:
+        deprecated = "\n\t@Deprecated"
+
+    docstring = docstring_template.format(brief_docstring=brief_docstring, parameters_docstring=parameters_docstring, return_docstring=return_docstring, links_docstring=links_docstring, throw=throw, deprecated=deprecated)
 
     docstring = docstring.replace("ArrayJ", "{@link ArrayJ}")
     docstring = docstring.replace("DeviceJ", "{@link DeviceJ}")
@@ -295,9 +307,12 @@ def generate_java_class(tier_idx, functions):
 package net.clesperanto.kernels;
 
 import java.util.Objects;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import net.clesperanto.core.ArrayJ;
 import net.clesperanto.core.DeviceJ;
+import net.clesperanto.core.Utils;
 
 /**
  * Class containing all functions of tier {tier_idx} category
