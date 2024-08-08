@@ -6,7 +6,9 @@
 
 def __cpp_return_guard(parameter: str):
     mapping = {
-        "Array::Pointer": ("ArrayJ", "ArrayJ{", "}")
+        "Array::Pointer": ("ArrayJ", "ArrayJ{", "}"),
+        "std::vector<Array::Pointer>": ("std::vector<ArrayJ>", "UtilsJ::toArrayJVector(", ")"),
+        "StatisticsMap": ("std::unordered_map<std::string, std::vector<float>>", "", ""),
     }
     return mapping.get(parameter, (parameter, "", ""))
 
@@ -19,7 +21,7 @@ def _cpp_function_parameters(parameters):
             "&": "",
             "Device::Pointer": "DeviceJ *",
             "Array::Pointer": "ArrayJ *",
-            "std::string": "String"
+            "std::vector<Array::Pointer>": "std::vector<ArrayJ>",
         }
         for old, new in replacements.items():
             param_type = param_type.replace(old, new)
