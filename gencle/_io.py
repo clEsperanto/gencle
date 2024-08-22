@@ -1,7 +1,9 @@
 import os, glob, json
 import requests
 
-def read_tier_from_github(tier: int, repo: str = 'clEsperanto/CLIc_prototype', branch: str ='master') -> str:
+from typing import List, Tuple
+
+def read_tier_from_github(repo: str = 'clEsperanto/CLIc', branch: str ='master') -> Tuple[List[str], List[int]]:
     """Read tier file from github repository.
 
     Notes: small update time is required after a push to github to get the latest version.
@@ -21,16 +23,24 @@ def read_tier_from_github(tier: int, repo: str = 'clEsperanto/CLIc_prototype', b
         Contents of tier file.
     """
 
-    file_path = f'clic/include/tier' + str(tier) + '.hpp'
-    raw_file_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
 
-    # Make an HTTP GET request to the raw file URL
-    response = requests.get(raw_file_url)
-    
-    # Check if the request was successful
-    if response.status_code == 200:
-        # Return the content of the file
-        return response.text
+    tier_list = []
+    code_list = []
+    for tier in range(1, 10):
+        file_path = f'clic/include/tier' + str(tier) + '.hpp'
+        raw_file_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
+
+        # Make an HTTP GET request to the raw file URL
+        response = requests.get(raw_file_url)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Return the content of the file
+            code_list.append(response.text)
+            tier_list.append(tier)
+        else:
+            break
+    return code_list, tier_list
 
 
 def list_tier_files(folder: str) -> list:
@@ -92,7 +102,7 @@ def write_json_file(filepath: str, json_data: dict) -> None:
         return None
     
     
-def write_file(filepath: str, content: str, create_folder: bool =True, overwrite: bool =False) -> None:
+def write_file(filepath: str, content: str, create_folder: bool =True, overwrite: bool =False) -> bool:
     """Write file.
 
     Parameters
@@ -115,4 +125,5 @@ def write_file(filepath: str, content: str, create_folder: bool =True, overwrite
             file.write(content)
     except FileNotFoundError:
         print(f"File not found: {filepath}")
-        return None
+        return False
+    return True
