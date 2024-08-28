@@ -69,6 +69,12 @@ def update_version_file(dst_repo: str, tag: str):
 
 
 def main():
+
+    # print help message if the number of arguments is not correct
+    if len(sys.argv) != 3:
+        print("Usage: python pyclesperanto_auto_update.py <OUTPUT_REPO> <VERSION_TAG>")
+        sys.exit(1)
+
     update_tier_code(OUTPUT_REPO, SOURCE_REPO, VERSION_TAG)
     update_version_file(OUTPUT_REPO, VERSION_TAG)
     print("gencle: Done!")
