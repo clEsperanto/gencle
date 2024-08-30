@@ -147,38 +147,46 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      # - name: Create branch if not exists
-      #   id: check-branch
-      #   uses: actions/github-script@v7.0.1
-      #   with:
-      #     github-token: ${{ secrets.RELEASE_PAT }}
-      #     script: |
-      #       const releaseTag = context.payload.client_payload?.release_tag || context.payload.inputs.tag;
-      #       const branchName = `auto-update-version-${releaseTag}`;
-      #       const { data: branches } = await github.rest.repos.listBranches({
-      #         owner: context.repo.owner,
-      #         repo: 'bot_playground',
-      #       });
+      - name: Create branch if not exists
+        id: check-branch
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            const releaseTag = context.payload.client_payload?.release_tag || context.payload.inputs.tag;
+            const branchName = `auto-update-version-${releaseTag}`;
+            const { data: branches } = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: 'bot_playground',
+            });
       
-      #       const branchExists = branches.some(branch => branch.name === branchName);
+            const branchExists = branches.some(branch => branch.name === branchName);
       
-      #       if (!branchExists) {
-      #         console.log(`Creating new branch: ${branchName}`);
-      #         await github.rest.git.createRef({
-      #           owner: context.repo.owner,
-      #           repo: 'bot_playground',
-      #           ref: `refs/heads/${branchName}`,
-      #           sha: context.sha,
-      #         });
-      #       } else {
-      #         console.log(`Branch already exists: ${branchName}`);
-      #       }
+            if (!branchExists) {
+              console.log(`Creating new branch: ${branchName}`);
+              const { data: refData } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: 'bot_playground',
+                ref: 'heads/main'
+              });
+
+              const mainBranchSha = refData.object.sha;
+
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: 'bot_playground',
+                ref: `refs/heads/${branchName}`,
+                sha: mainBranchSha,
+              });
+            } else {
+              console.log(`Branch already exists: ${branchName}`);
+            }
       
-      #       const { data: branchesAfter } = await github.rest.repos.listBranches({
-      #         owner: context.repo.owner,
-      #         repo: 'bot_playground',
-      #       });
-      #       console.log(branchesAfter.map(branch => branch.name));
+            const { data: branchesAfter } = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: 'bot_playground',
+            });
+            console.log(branchesAfter.map(branch => branch.name));
             
       - name: Update and push pyclesranto code
         id: update-code
@@ -190,7 +198,6 @@ jobs:
           git clone https://$GH_TOKEN@github.com/clEsperanto/bot_playground.git repoToUpdate
           cd repoToUpdate
           git fetch origin
-          git checkout -B auto-update-version-$RELEASE_TAG
 
           echo "Run update script:"
           pip install requests
@@ -257,12 +264,12 @@ jobs:
               Closes #${{ needs.handle-issue.outputs.issue_number }}`
             });
             
-            await github.rest.pulls.requestReviewers({
-              owner: context.repo.owner,
-              repo: 'bot_playground',
-              pull_number: pr.number,
-              reviewers: ['StRigaud']
-            });
+            //await github.rest.pulls.requestReviewers({
+            //  owner: context.repo.owner,
+            //  repo: 'bot_playground',
+            //  pull_number: pr.number,
+            //  reviewers: ['StRigaud']
+            //});
       
             console.log(`Created PR with number: ${pr.number}`);
             core.setOutput('pr_number', pr.number);
