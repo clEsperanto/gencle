@@ -198,6 +198,7 @@ jobs:
           git clone https://$GH_TOKEN@github.com/clEsperanto/bot_playground.git repoToUpdate
           cd repoToUpdate
           git fetch origin
+          git checkout auto-update-version-$RELEASE_TAG 
 
           echo "Run update script:"
           pip install requests
