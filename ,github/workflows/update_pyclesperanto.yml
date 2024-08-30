@@ -1,0 +1,264 @@
+name: Update pyclEsperanto
+
+on:
+  repository_dispatch:
+    types: [clic_update]
+  workflow_dispatch: # allows manual triggering
+    inputs:
+      release_tag:
+        description: 'Update to latest tag'
+        required: true
+        default: 'latest'
+
+
+jobs:
+
+  handle-issue:
+    runs-on: ubuntu-latest
+    outputs:
+      issue_number: ${{ steps.check-issues.outputs.issue_number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Get release tag and store it for easy access in all jobs
+        id: get_release_tag
+        run: |
+          echo "${{ github.event.client_payload.release_tag || github.event.inputs.release_tag }}"
+
+      - name: Check if issues already exists
+        id: check-issues
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            (async () => {
+              const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+
+              console.log(`Checking if issue already exists for release tag: ${releaseTag}` in pyclesperanto);
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: 'bot_playground',
+                labels: 'auto-update',
+                state: 'all'
+              });
+
+              const issue = issues.find(issue => issue.title === `Auto-Update to version ${releaseTag}`);
+              if (issue) {
+                console.log("Issue already exists with number: " + issue.number);
+                core.setOutput('issue_number', issue.number);
+              } else {
+                console.log(`No existing issue found for release tag: ${releaseTag}`);
+                core.setOutput('issue_number', '');
+              }
+            })();
+
+      - name: Create issue if not exists
+        id: create-issue
+        if: steps.check-issues.outputs.issue_number == ''
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            (async () => {
+              const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+
+              console.log(`Creating new issue for release tag: ${releaseTag}`);
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: 'bot_playground',
+                title: `Auto-Update to version ${releaseTag}`,
+                body: `This is an automated issue created by the auto-update workflow following up a new Release of CLIc.
+        
+                ### Release Information
+                - **Release Tag:** ${releaseTag}
+                - **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
+        
+                Please review the changes and update the dependencies accordingly.`,
+                labels: ['auto-update']
+              });
+        
+              console.log("Created issue with number: " + issue.number);
+              core.setOutput('issue_number', issue.number);
+            })();
+
+      - name: Else reopen the issue
+        id: reopen-issue
+        if: steps.check-issues.outputs.issue_number != ''
+        env:
+          issue_number: ${{ steps.check-issues.outputs.issue_number }}
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            (async () => {
+              const issue_number = process.env.issue_number;
+              const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+
+              console.log(`Adding message to existing issue with number: ${issue_number}`);
+              const { data: issue } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: 'bot_playground',
+                issue_number: issue_number
+              });
+      
+              if (issue.state === 'closed') {
+                console.log(`Reopening closed issue with number: ${issue_number}`);
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: 'bot_playground',
+                  issue_number: issue_number,
+                  state: 'open'
+                });
+      
+                console.log(`Adding comment to reopened issue with number: ${issue_number}`);
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: 'bot_playground',
+                  issue_number: issue_number,
+                  body: `This is an automated issue created by the auto-update workflow following up a new Release of CLIc.
+      
+                  ### Release Information
+                  - **Release Tag:** ${releaseTag}
+                  - **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
+      
+                  Please review the changes and update the dependencies accordingly.`
+                });
+              }
+      
+              core.setOutput('issue_number', issue_number);
+            })();
+
+  update-code:
+    needs: handle-issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure git
+        run: |
+          echo "Configuring git user"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create branch if not exists
+        id: check-branch
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+            const branchName = `auto-update-version-${releaseTag}`;
+            const { data: branches } = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: 'bot_playground',
+            });
+      
+            const branchExists = branches.some(branch => branch.name === branchName);
+      
+            if (!branchExists) {
+              console.log(`Creating new branch: ${branchName}`);
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: 'bot_playground',
+                ref: `refs/heads/${branchName}`,
+                sha: context.sha,
+              });
+            } else {
+              console.log(`Branch already exists: ${branchName}`);
+            }
+      
+            const { data: branchesAfter } = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: 'bot_playground',
+            });
+            console.log(branchesAfter.map(branch => branch.name));
+            
+      - name: Update and push pyclesranto code
+        id: update-code
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          RELEASE_TAG: ${{ github.event.client_payload.release_tag || github.event.inputs.release_tag }}
+        run: |
+          echo "Clone and checkout repository to update branch"
+          git clone https://$GH_TOKEN@github.com/clEsperanto/bot_playground.git repoToUpdate
+          cd repoToUpdate
+          git fetch origin
+          git checkout auto-update-version-$RELEASE_TAG
+
+          echo "Run update script:"
+          python ../pyclesperanto_auto_update.py ${{ github.workspace }}/repoToUpdate $RELEASE_TAG
+
+          echo "Commit and push changes"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Update tiers to $RELEASE_TAG"
+            git push origin auto-update-version-$RELEASE_TAG
+          else
+            echo "No changes detected, skipping commit"
+          fi
+        shell: /usr/bin/bash -e {0}
+
+      - name: Check if PR exists
+        id: check-pr
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+            console.log(`Checking if PR already exists for branch: auto-update-version-${releaseTag}`);
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: 'bot_playground',
+              state: 'open',
+              head: `auto-update-version-${releaseTag}`
+            });
+      
+            if (prs.length > 0) {
+              console.log(`PR already exists with number: ${prs[0].number}`);
+              core.setOutput('pr_number', prs[0].number);
+            } else {
+              console.log(`No existing PR found for branch: auto-update-version-${releaseTag}`);
+              core.setOutput('pr_number', '');
+            }
+
+      - name: Create a PR if not
+        id: create-pr
+        if: steps.check-pr.outputs.pr_number == ''
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+            console.log(`Creating new PR for branch: auto-update-version-${releaseTag}`);
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: 'bot_playground',
+              title: `Auto-Update to version ${releaseTag}`,
+              head: `auto-update-version-${releaseTag}`,
+              base: 'main',
+              body: `### Automated Dependency Update
+              
+              This is an automated pull request created by the auto-update workflow following up a new Release of CLIc.
+              
+              **Release Tag:** ${releaseTag}
+              **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
+                          
+              Closes #${{ needs.handle-issue.outputs.issue_number }}`
+            });
+            
+            await github.rest.pulls.createReviewRequest({
+              owner: context.repo.owner,
+              repo: 'bot_playground',
+              pull_number: pr.number,
+              reviewers: ['StRigaud']
+            });
+      
+            console.log(`Created PR with number: ${pr.number}`);
+            core.setOutput('pr_number', pr.number);
