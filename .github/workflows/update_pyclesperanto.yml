@@ -40,7 +40,7 @@ jobs:
             (async () => {
               const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
 
-              console.log(`Checking if issue already exists for release tag: ${releaseTag}` in pyclesperanto);
+              console.log(`Checking if issue already exists for release tag: ${releaseTag} in pyclesperanto`);
               const { data: issues } = await github.rest.issues.listForRepo({
                 owner: context.repo.owner,
                 repo: 'bot_playground',
