@@ -219,6 +219,7 @@ jobs:
               repo: 'bot_playground'
             });
 
+            let pr_number = '';
             for (const pr of prs) {
               if (pr.head.ref === `auto-update-version-${releaseTag}` && pr.state === 'open') {
                 console.log(`PR already exists with number: ${pr.number}`);
@@ -226,7 +227,6 @@ jobs:
                 return;
               }
             }
-
             if (pr_number === '') {
               console.log(`No existing PR found for branch: auto-update-version-${releaseTag}`);
               core.setOutput('pr_number', '');
