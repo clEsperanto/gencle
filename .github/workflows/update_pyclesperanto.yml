@@ -5,7 +5,7 @@ on:
     types: [clic_update]
   workflow_dispatch: # allows manual triggering
     inputs:
-      release_tag:
+      tag:
         description: 'Update to latest tag'
         required: true
         default: 'master'
@@ -29,7 +29,7 @@ jobs:
       - name: Get release tag and store it for easy access in all jobs
         id: get_release_tag
         run: |
-          echo "${{ github.event.client_payload.release_tag || github.event.inputs.release_tag }}"
+          echo "${{ github.event.client_payload.release_tag || github.event.inputs.tag }}"
 
       - name: Check if issues already exists
         id: check-issues
@@ -38,7 +38,7 @@ jobs:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
             (async () => {
-              const releaseTag = context.payload.client_payload?.release_tag || context.inputs.release_tag;
+              const releaseTag = context.payload.client_payload?.release_tag || context.inputs.tag;
 
               console.log(`Checking if issue already exists for release tag: ${releaseTag} in pyclesperanto`);
               const { data: issues } = await github.rest.issues.listForRepo({
@@ -66,7 +66,7 @@ jobs:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
             (async () => {
-              const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.release_tag;
+              const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.tag;
 
               console.log(`Creating new issue for release tag: ${releaseTag}`);
               const { data: issue } = await github.rest.issues.create({
@@ -98,7 +98,7 @@ jobs:
           script: |
             (async () => {
               const issue_number = process.env.issue_number;
-              const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.release_tag;
+              const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.tag;
 
               console.log(`Adding message to existing issue with number: ${issue_number}`);
               const { data: issue } = await github.rest.issues.get({
@@ -153,7 +153,7 @@ jobs:
         with:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
-            const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.release_tag;
+            const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.tag;
             const branchName = `auto-update-version-${releaseTag}`;
             const { data: branches } = await github.rest.repos.listBranches({
               owner: context.repo.owner,
@@ -184,7 +184,7 @@ jobs:
         id: update-code
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-          RELEASE_TAG: ${{ github.event.client_payload.release_tag || github.event.inputs.release_tag }}
+          RELEASE_TAG: ${{ github.event.client_payload.release_tag || github.event.inputs.tag }}
         run: |
           echo "Clone and checkout repository to update branch"
           git clone https://$GH_TOKEN@github.com/clEsperanto/bot_playground.git repoToUpdate
@@ -211,7 +211,7 @@ jobs:
         with:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
-            const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.release_tag;
+            const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.tag;
             console.log(`Checking if PR already exists for branch: auto-update-version-${releaseTag}`);
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -235,7 +235,7 @@ jobs:
         with:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
-            const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.release_tag;
+            const releaseTag = context.payload.client_payload?.release_tag || context.event.inputs.tag;
             console.log(`Creating new PR for branch: auto-update-version-${releaseTag}`);
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
