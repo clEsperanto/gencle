@@ -69,12 +69,12 @@ jobs:
                 repo: 'bot_playground',
                 title: `Auto-Update to version ${releaseTag}`,
                 body: `This is an automated issue created by the auto-update workflow following up a new Release of CLIc.
-        
-                ### Release Information
-                - **Release Tag:** ${releaseTag}
-                - **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
-        
-                Please review the changes and update the dependencies accordingly.`,
+
+              ### Release Information
+              - **Release Tag:** ${releaseTag}
+              - **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
+
+              Please review the changes and update the dependencies accordingly.`,
                 labels: ['auto-update']
               });
         
@@ -122,7 +122,7 @@ jobs:
               - **Release Tag:** ${releaseTag}
               - **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
 
-              Please review the changes and update the dependencies accordingly.`
+              Please review the changes and update the dependencies accordingly.`,
               });
               }
       
@@ -147,38 +147,38 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create branch if not exists
-        id: check-branch
-        uses: actions/github-script@v7.0.1
-        with:
-          github-token: ${{ secrets.RELEASE_PAT }}
-          script: |
-            const releaseTag = context.payload.client_payload?.release_tag || context.payload.inputs.tag;
-            const branchName = `auto-update-version-${releaseTag}`;
-            const { data: branches } = await github.rest.repos.listBranches({
-              owner: context.repo.owner,
-              repo: 'bot_playground',
-            });
+      # - name: Create branch if not exists
+      #   id: check-branch
+      #   uses: actions/github-script@v7.0.1
+      #   with:
+      #     github-token: ${{ secrets.RELEASE_PAT }}
+      #     script: |
+      #       const releaseTag = context.payload.client_payload?.release_tag || context.payload.inputs.tag;
+      #       const branchName = `auto-update-version-${releaseTag}`;
+      #       const { data: branches } = await github.rest.repos.listBranches({
+      #         owner: context.repo.owner,
+      #         repo: 'bot_playground',
+      #       });
       
-            const branchExists = branches.some(branch => branch.name === branchName);
+      #       const branchExists = branches.some(branch => branch.name === branchName);
       
-            if (!branchExists) {
-              console.log(`Creating new branch: ${branchName}`);
-              await github.rest.git.createRef({
-                owner: context.repo.owner,
-                repo: 'bot_playground',
-                ref: `refs/heads/${branchName}`,
-                sha: context.sha,
-              });
-            } else {
-              console.log(`Branch already exists: ${branchName}`);
-            }
+      #       if (!branchExists) {
+      #         console.log(`Creating new branch: ${branchName}`);
+      #         await github.rest.git.createRef({
+      #           owner: context.repo.owner,
+      #           repo: 'bot_playground',
+      #           ref: `refs/heads/${branchName}`,
+      #           sha: context.sha,
+      #         });
+      #       } else {
+      #         console.log(`Branch already exists: ${branchName}`);
+      #       }
       
-            const { data: branchesAfter } = await github.rest.repos.listBranches({
-              owner: context.repo.owner,
-              repo: 'bot_playground',
-            });
-            console.log(branchesAfter.map(branch => branch.name));
+      #       const { data: branchesAfter } = await github.rest.repos.listBranches({
+      #         owner: context.repo.owner,
+      #         repo: 'bot_playground',
+      #       });
+      #       console.log(branchesAfter.map(branch => branch.name));
             
       - name: Update and push pyclesranto code
         id: update-code
@@ -189,8 +189,11 @@ jobs:
           echo "Clone and checkout repository to update branch"
           git clone https://$GH_TOKEN@github.com/clEsperanto/bot_playground.git repoToUpdate
           cd repoToUpdate
+          git branch
           git fetch origin
-          git checkout auto-update-version-$RELEASE_TAG
+          git branch
+          git checkout -B auto-update-version-$RELEASE_TAG
+          git branch
 
           echo "Run update script:"
           python ../pyclesperanto_auto_update.py ${{ github.workspace }}/repoToUpdate $RELEASE_TAG
