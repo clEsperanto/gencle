@@ -191,6 +191,8 @@ jobs:
           cd repoToUpdate
           git fetch origin
           git checkout -B auto-update-version-$RELEASE_TAG
+          git fetch origin
+
 
           echo "Run update script:"
           pip install requests
