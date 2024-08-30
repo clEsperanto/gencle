@@ -19,10 +19,10 @@ jobs:
       issue_number: ${{ steps.check-issues.outputs.issue_number }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4.1.7
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5.2.0
         with:
           python-version: '3.x'
 
@@ -139,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4.1.7
 
       - name: Configure git
         run: |
