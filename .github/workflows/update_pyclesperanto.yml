@@ -168,7 +168,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: 'bot_playground',
                 ref: `refs/heads/${branchName}`,
-                sha: `main`,
+                sha: context.sha,
               });
             } else {
               console.log(`Branch already exists: ${branchName}`);
