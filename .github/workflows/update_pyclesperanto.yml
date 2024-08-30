@@ -220,6 +220,8 @@ jobs:
               state: 'open',
               head: `auto-update-version-${releaseTag}`
             });
+
+            console.log(prs);
       
             if (prs.length > 0) {
               console.log(`PR already exists with number: ${prs[0].number}`);
