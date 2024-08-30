@@ -23,9 +23,8 @@ def update_tier_code(dst_repo:str, src_repo:str, tag:str):
         None
     """
     code_list, tier_list = gencle.read_tier_from_github(repo=src_repo, branch=tag)
-    print(f"gencle: Found {len(code_list)} tier files: {tier_list}")
+    print(f"gencle: Updating {len(code_list)} tier files: {tier_list} ...")
     for tier, code in zip(tier_list, code_list):
-        print(f"gencle: Generating tier{tier} files ...")
         functions_list = gencle.parse_doxygen_to_json(code)
         wrapper_file = gencle.generate_wrapper_file(functions_list, tier)
         python_file = gencle.generate_python_file(functions_list, tier)
@@ -37,7 +36,7 @@ def update_tier_code(dst_repo:str, src_repo:str, tag:str):
 
 def update_version_file(dst_repo: str, tag: str):
     """
-    Update the _version.py file in the OUTPUT_REPO with the version tag.
+    Update the CLIc version tag.
 
     Parameters
     ----------
@@ -55,7 +54,7 @@ def update_version_file(dst_repo: str, tag: str):
 
     # if file does not exist, return
     if not os.path.exists(version_file):
-        print(f"gencle: Could not find {version_file}")
+        print(f"gencle: Fail updating CLIc version. Could not find {version_file}")
         return
 
     with open(version_file, 'r') as file:
@@ -69,8 +68,6 @@ def update_version_file(dst_repo: str, tag: str):
 
 
 def main():
-
-    # print help message if the number of arguments is not correct
     if len(sys.argv) != 3:
         print("Usage: python pyclesperanto_auto_update.py <OUTPUT_REPO> <VERSION_TAG>")
         sys.exit(1)
