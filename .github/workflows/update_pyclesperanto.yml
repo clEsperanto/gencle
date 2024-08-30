@@ -257,7 +257,7 @@ jobs:
               Closes #${{ needs.handle-issue.outputs.issue_number }}`
             });
             
-            await github.rest.pulls.createReviewRequest({
+            await github.rest.pulls.requestReviewers({
               owner: context.repo.owner,
               repo: 'bot_playground',
               pull_number: pr.number,
