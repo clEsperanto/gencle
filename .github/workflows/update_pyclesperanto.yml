@@ -38,7 +38,7 @@ jobs:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
             (async () => {
-              const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+              const releaseTag = context.payload.client_payload.release_tag || github.event.inputs.release_tag;
 
               console.log(`Checking if issue already exists for release tag: ${releaseTag} in pyclesperanto`);
               const { data: issues } = await github.rest.issues.listForRepo({
@@ -66,7 +66,7 @@ jobs:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
             (async () => {
-              const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+              const releaseTag = context.payload.client_payload.release_tag || github.event.inputs.release_tag;
 
               console.log(`Creating new issue for release tag: ${releaseTag}`);
               const { data: issue } = await github.rest.issues.create({
@@ -98,7 +98,7 @@ jobs:
           script: |
             (async () => {
               const issue_number = process.env.issue_number;
-              const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+              const releaseTag = context.payload.client_payload.release_tag || github.event.inputs.release_tag;
 
               console.log(`Adding message to existing issue with number: ${issue_number}`);
               const { data: issue } = await github.rest.issues.get({
@@ -153,7 +153,7 @@ jobs:
         with:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
-            const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+            const releaseTag = context.payload.client_payload.release_tag || github.event.inputs.release_tag;
             const branchName = `auto-update-version-${releaseTag}`;
             const { data: branches } = await github.rest.repos.listBranches({
               owner: context.repo.owner,
@@ -211,7 +211,7 @@ jobs:
         with:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
-            const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+            const releaseTag = context.payload.client_payload.release_tag || github.event.inputs.release_tag;
             console.log(`Checking if PR already exists for branch: auto-update-version-${releaseTag}`);
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -235,7 +235,7 @@ jobs:
         with:
           github-token: ${{ secrets.RELEASE_PAT }}
           script: |
-            const releaseTag = context.payload.client_payload.release_tag || context.event.inputs.release_tag;
+            const releaseTag = context.payload.client_payload.release_tag || github.event.inputs.release_tag;
             console.log(`Creating new PR for branch: auto-update-version-${releaseTag}`);
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
