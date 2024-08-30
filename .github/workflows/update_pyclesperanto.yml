@@ -216,17 +216,18 @@ jobs:
             console.log(`Checking if PR already exists for branch: auto-update-version-${releaseTag}`);
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
-              repo: 'bot_playground',
-              state: 'open',
-              head: `auto-update-version-${releaseTag}`
+              repo: 'bot_playground'
             });
 
-            console.log(prs);
-      
-            if (prs.length > 0) {
-              console.log(`PR already exists with number: ${prs[0].number}`);
-              core.setOutput('pr_number', prs[0].number);
-            } else {
+            for (const pr of prs) {
+              if (pr.head.ref === `auto-update-version-${releaseTag}` && pr.state === 'open') {
+                console.log(`PR already exists with number: ${pr.number}`);
+                core.setOutput('pr_number', pr.number);
+                return;
+              }
+            }
+
+            if (pr_number === '') {
               console.log(`No existing PR found for branch: auto-update-version-${releaseTag}`);
               core.setOutput('pr_number', '');
             }
