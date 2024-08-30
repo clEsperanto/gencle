@@ -21,11 +21,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.1.7
 
-      - name: Set up Python
-        uses: actions/setup-python@v5.2.0
-        with:
-          python-version: '3.x'
-
       - name: Get release tag and store it for easy access in all jobs
         id: get_release_tag
         run: |
@@ -116,19 +111,19 @@ jobs:
                   state: 'open'
                 });
       
-                console.log(`Adding comment to reopened issue with number: ${issue_number}`);
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: 'bot_playground',
-                  issue_number: issue_number,
-                  body: `This is an automated issue created by the auto-update workflow following up a new Release of CLIc.
-      
-                  ### Release Information
-                  - **Release Tag:** ${releaseTag}
-                  - **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
-      
-                  Please review the changes and update the dependencies accordingly.`
-                });
+              console.log(`Adding comment to reopened issue with number: ${issue_number}`);
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: 'bot_playground',
+                issue_number: issue_number,
+                body: `This is an automated issue created by the auto-update workflow following up a new Release of CLIc.
+
+              ### Release Information
+              - **Release Tag:** ${releaseTag}
+              - **Changelog:** [View Changelog](https://github.com/clEsperanto/CLIc/releases/tag/${releaseTag})
+
+              Please review the changes and update the dependencies accordingly.`
+              });
               }
       
               core.setOutput('issue_number', issue_number);
@@ -140,6 +135,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.2.0
+        with:
+          python-version: '3.x'  
 
       - name: Configure git
         run: |
@@ -168,7 +168,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: 'bot_playground',
                 ref: `refs/heads/${branchName}`,
-                sha: context.sha,
+                sha: `main`,
               });
             } else {
               console.log(`Branch already exists: ${branchName}`);
