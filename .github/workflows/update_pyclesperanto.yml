@@ -189,13 +189,11 @@ jobs:
           echo "Clone and checkout repository to update branch"
           git clone https://$GH_TOKEN@github.com/clEsperanto/bot_playground.git repoToUpdate
           cd repoToUpdate
-          git branch
           git fetch origin
-          git branch
           git checkout -B auto-update-version-$RELEASE_TAG
-          git branch
 
           echo "Run update script:"
+          pip install requests
           python ../pyclesperanto_auto_update.py ${{ github.workspace }}/repoToUpdate $RELEASE_TAG
 
           echo "Commit and push changes"
