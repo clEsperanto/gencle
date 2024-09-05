@@ -1,5 +1,5 @@
 import os, glob, json
-import requests
+import urllib.request
 
 from typing import List, Tuple
 
@@ -23,23 +23,22 @@ def read_tier_from_github(repo: str = 'clEsperanto/CLIc', branch: str ='master')
         Contents of tier file.
     """
 
-
     tier_list = []
     code_list = []
     for tier in range(1, 10):
-        file_path = f'clic/include/tier' + str(tier) + '.hpp'
+        file_path = f'clic/include/tier{tier}.hpp'
         raw_file_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
 
-        # Make an HTTP GET request to the raw file URL
-        response = requests.get(raw_file_url)
-        
-        # Check if the request was successful
-        if response.status_code == 200:
-            # Return the content of the file
-            code_list.append(response.text)
-            tier_list.append(tier)
-        else:
+        try:
+            with urllib.request.urlopen(raw_file_url) as response:
+                if response.status == 200:
+                    code_list.append(response.read().decode('utf-8'))
+                    tier_list.append(tier)
+                else:
+                    break
+        except urllib.error.URLError:
             break
+
     return code_list, tier_list
 
 
