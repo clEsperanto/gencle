@@ -204,7 +204,7 @@ def _generate_decorator(function_dict: dict) -> str:
     """
     priority = function_dict['priority'].replace("\'","\"") if function_dict['priority'] != "" else None
     category = function_dict['category'].replace("\'","\"") if function_dict['category'] != "" else None
-    category_defines = f'category=[{category}]' if category else ''
+    category_defines = f'categories=[{category}]' if category else ''
     priority_defines = f'priority={priority}' if priority else ''
 
     decorator_defines = ''
