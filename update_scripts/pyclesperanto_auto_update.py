@@ -23,7 +23,7 @@ def update_tier_code(dst_repo: str, src_repo: str, tag: str):
     -------
         None
     """
-    code_list, tier_list = gencle.read_tier_from_github(repo=src_repo, branch=tag)
+    code_list, tier_list = gencle.read_clic_tier_from_github(repo=src_repo, branch=tag)
     print(f"gencle: Updating {len(code_list)} tier files: {tier_list} ...")
     for tier, code in zip(tier_list, code_list):
         functions_list = gencle.parse_doxygen_to_json(code)
