@@ -48,7 +48,7 @@ def make_java_types(list_of_parameters):
 
 def function_wrapper(line, tier):
     camel_function_name = get_function_name(line)
-    # snake_function_name = camel_to_snake(camel_function_name)
+    snake_function_name = camel_to_snake(camel_function_name)
     return_type = get_return_type(line).replace("static ", "")
     parameters = get_parameters(line)
 
@@ -60,7 +60,7 @@ def function_wrapper(line, tier):
     param_values = ", ".join(param_values)
 
     return f"""
-    {return_type} {camel_function_name} ({param_definitions}) {{
+    {return_type} {snake_function_name} ({param_definitions}) {{
         return Tier{tier}.{camel_function_name}(device, {param_values});
     }}
 """
