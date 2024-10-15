@@ -32,7 +32,7 @@ def update_tier_code(dst_repo: str, src_repo: str, tag: str):
         gencle.write_file(source_filepath, code, overwrite=True)
         header_file.append(header)
     header_filepath = os.path.join(header_folder, f"kernelj.hpp")
-    header_code = "\n".join(header_file)
+    header_code = gencle.merger_classes_in_header(header_file)
     gencle.write_file(header_filepath, header_code, overwrite=True)
 
     for tier, code in zip(tier_list, code_list):
