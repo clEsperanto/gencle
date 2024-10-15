@@ -58,23 +58,26 @@ def update_version_file(dst_repo: str, tag: str):
         None
     """
 
-    cmake_file = os.path.join(
-        os.path.join(dst_repo, "native/clesperantoj"), "CMakeLists.txt"
-    )
-    # pom_file = os.path.join(dst_repo,'pom.xml')
+    xml_file = os.path.join(dst_repo, "pom.xml")
 
-    if not os.path.exists(cmake_file):
-        print(f"gencle: Fail updating CLIc version. Could not find {cmake_file}")
+    if not os.path.exists(xml_file):
+        print(f"gencle: Fail updating CLIc version. Could not find {xml_file}")
         return
 
-    with open(cmake_file, "r") as file:
+    # read the file xml_file
+    with open(xml_file, "r") as file:
         data = file.readlines()
     for i, line in enumerate(data):
-        if "set(CLIC_REPO_TAG" in line:
-            data[i] = f"set(CLIC_REPO_TAG {tag})\n"
+        if "<clic.version>" in line:
+            data[i] = f"        <clic.version>{tag}</clic.version>\n"
             break
-    with open(cmake_file, "w") as file:
+    
+    with open(xml_file, "w") as file:
         file.writelines(data)
+
+
+
+
 
 
 def main():

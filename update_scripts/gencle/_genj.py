@@ -4,7 +4,6 @@
 # The following functions are used to generate the native code for the Java bindings.
 #
 
-
 def __cpp_return_guard(parameter: str):
     mapping = {
         "Array::Pointer": ("ArrayJ", "ArrayJ{", "}"),
