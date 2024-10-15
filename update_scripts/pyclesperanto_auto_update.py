@@ -1,9 +1,9 @@
 import gencle
 import os, sys
 
-OUTPUT_REPO = sys.argv[1]
-VERSION_TAG = sys.argv[2]
-SOURCE_REPO = "clEsperanto/CLIc"
+# OUTPUT_REPO = sys.argv[1]
+# VERSION_TAG = sys.argv[2]
+# SOURCE_REPO = "clEsperanto/CLIc"
 
 
 def update_tier_code(dst_repo: str, src_repo: str, tag: str):
@@ -24,7 +24,6 @@ def update_tier_code(dst_repo: str, src_repo: str, tag: str):
         None
     """
     code_list, tier_list = gencle.read_clic_tier_from_github(repo=src_repo, branch=tag)
-    print(f"gencle: Updating {len(code_list)} tier files: {tier_list} ...")
     for tier, code in zip(tier_list, code_list):
         functions_list = gencle.parse_doxygen_to_json(code)
         wrapper_file = gencle.generate_wrapper_file(functions_list, tier)
@@ -71,16 +70,23 @@ def update_version_file(dst_repo: str, tag: str):
     with open(version_file, "w") as file:
         file.writelines(data)
 
-    print(f"gencle: Updated CLIc version tag to '{tag}'")
-
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python pyclesperanto_auto_update.py <OUTPUT_REPO> <VERSION_TAG>")
+        print("Usage: python pyclesperanto_auto_update.py <OUTPUT_PATH> <VERSION_TAG>")
+        print("Example: python pyclesperanto_auto_update.py /path/to/clesperantoj 1.2.3")
+        print("This script will update the pyclesperanto repository in the given path to version 1.2.3 of CLIc.")
         sys.exit(1)
 
-    update_tier_code(OUTPUT_REPO, SOURCE_REPO, VERSION_TAG)
-    update_version_file(OUTPUT_REPO, VERSION_TAG)
+    output_path = sys.argv[1]
+    version_tag = sys.argv[2]
+    source_repo = "clEsperanto/CLIc"
+
+    print("gencle: Updating pyclesperanto repo ...")
+    print(f"gencle: Reading from {source_repo} at tag {version_tag}")
+    print(f"gencle: Writing to {output_path}")
+    update_tier_code(output_path, source_repo, version_tag)
+    update_version_file(output_path, version_tag)
     print("gencle: Done!")
 
 
