@@ -60,7 +60,7 @@ def function_wrapper(line, tier):
     param_values = ", ".join(param_values)
 
     return f"""
-    {return_type} {snake_function_name} ({param_definitions}) {{
+    {return_type} {snake_function_name}({param_definitions}) {{
         return Tier{tier}.{camel_function_name}(device, {param_values});
     }}
 """
