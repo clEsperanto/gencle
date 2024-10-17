@@ -304,7 +304,7 @@ def _generate_java_docstring(function_dict):
 
     # remove for now because it create an issue with JavaDoc
     # # format each link in links to a javadoc link format
-    # links_docstring = ""
+    links_docstring = ""
     # if links:
     #     links_docstring = "\n\t * @see " + "\n\t * @see ".join(links)
 
