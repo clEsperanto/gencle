@@ -341,6 +341,11 @@ def _generate_java_docstring(function_dict):
     docstring = docstring.replace("ArrayJ", "{@link ArrayJ}")
     docstring = docstring.replace("DeviceJ", "{@link DeviceJ}")
 
+    # replace special characters:
+    docstring = docstring.replace(">", "&gt;")
+    docstring = docstring.replace("<", "&lt;")
+    docstring = docstring.replace("&", "&amp;")
+
     return docstring
 
 
