@@ -302,10 +302,11 @@ def _generate_java_docstring(function_dict):
 
     return_type = _replace_java_type(function_dict["return"])
 
-    # format each link in links to a javadoc link format
-    links_docstring = ""
-    if links:
-        links_docstring = "\n\t * @see " + "\n\t * @see ".join(links)
+    # remove for now because it create an issue with JavaDoc
+    # # format each link in links to a javadoc link format
+    # links_docstring = ""
+    # if links:
+    #     links_docstring = "\n\t * @see " + "\n\t * @see ".join(links)
 
     parameters = function_dict["parameters"]
     parameters_docstring = []
