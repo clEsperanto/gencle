@@ -19,7 +19,7 @@ def _generate_function_wrapper(function_dict: dict, tier: int) -> str:
         Pybind11 wrapper code for a single function.
     """
     _wrapper_func_code = """m.def(\"_{name}\", &cle::tier{tier}::{name}_func, "Call cle::tier{tier}::{name}_func from C++ CLIc.",
-    py::return_value_policy::take_ownership,
+    py::return_value_policy::automatic_reference,
     {parameters_bindings});"""
 
     name = function_dict["name"].replace("_func", "").strip()
