@@ -300,6 +300,10 @@ def _generate_java_docstring(function_dict):
     brief_docstring = ".\n\t * ".join(brief_docstring)
     brief_docstring = f"\t * {brief_docstring}."
 
+    brief_docstring = brief_docstring.replace(">", "&gt;")
+    brief_docstring = brief_docstring.replace("<", "&lt;")
+    brief_docstring = brief_docstring.replace("&", "&amp;")
+
     return_type = _replace_java_type(function_dict["return"])
 
     # format each link in links to a javadoc link format
@@ -325,8 +329,14 @@ def _generate_java_docstring(function_dict):
             + (f" (default: {p_default})" if p_default != "" else "")
         )
     parameters_docstring = "\n".join(parameters_docstring)
+    parameters_docstring = parameters_docstring.replace(">", "&gt;")
+    parameters_docstring = parameters_docstring.replace("<", "&lt;")
+    parameters_docstring = parameters_docstring.replace("&", "&amp;")
 
     return_docstring = f"\t * @return {return_type}"
+    return_docstring = return_docstring.replace(">", "&gt;")
+    return_docstring = return_docstring.replace("<", "&lt;")
+    return_docstring = return_docstring.replace("&", "&amp;")
 
     throw = "\t * @throws NullPointerException if any of the device or input parameters are null."
 
@@ -347,9 +357,9 @@ def _generate_java_docstring(function_dict):
     docstring = docstring.replace("DeviceJ", "{@link DeviceJ}")
 
     # replace special characters:
-    docstring = docstring.replace(">", "&gt;")
-    docstring = docstring.replace("<", "&lt;")
-    docstring = docstring.replace("&", "&amp;")
+    # docstring = docstring.replace(">", "&gt;")
+    # docstring = docstring.replace("<", "&lt;")
+    # docstring = docstring.replace("&", "&amp;")
 
     return docstring
 

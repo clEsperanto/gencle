@@ -28,7 +28,7 @@ def generate_clij_code(source_repo: str, version_tag:str) -> str:
 
 def update_clij_code(code: str, output_path: str) -> bool:
     """
-    Update the CLIJ3.java file in the OUTPUT_REPO with the new code.
+    Create (or replace) the CLIJ3Ops.java file in the OUTPUT_REPO with the new code.
     
     Parameters
     ----------
@@ -42,14 +42,15 @@ def update_clij_code(code: str, output_path: str) -> bool:
     bool
         True if the file was updated successfully, False otherwise.
     """
+    
     # read CLIJ3.java file
     clij_file_path = os.path.join(
-        output_path, "src/main/java/net/clesperanto/CLIJ3.java"
+        output_path, "src/main/java/net/clesperanto/CLIJ3Ops.java"
     )
-    clij_class = gencle.read_file(clij_file_path)
+    # clij_class = gencle.read_file(clij_file_path)
 
     # update CLIJ3.java file with new code
-    new_code = gencle.update_clij3_code(clij_class, code)
+    new_code = gencle.update_clij3_code(code)
     return gencle.write_file(clij_file_path, new_code, overwrite=True)
 
 
