@@ -106,6 +106,7 @@ def _convert_cpp_type_to_python(type: str) -> str:
         "Array::Pointer": "Image",
         "Device::Pointer": "Device",
         "std::vector": "list",
+        "std::vector<Array::Pointer>": "list[Image]",
         "std::string": "str",
         "StatisticsMap": "dict",
     }
