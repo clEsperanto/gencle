@@ -132,8 +132,8 @@ def _convert_cpp_type_to_python(type: str) -> str:
     type_mapping = {
         "Array::Pointer": "Image",
         "Device::Pointer": "Device",
-        "std::vector<Array::Pointer>": "list[Image]",
-        "std::vector": "list",
+        "std::vector<Array::Pointer>": "List[Image]",
+        "std::vector": "List",
         "std::string": "str",
         "StatisticsMap": "dict",
     }
@@ -362,7 +362,7 @@ def generate_python_file(function_list: list, tier: int) -> str:
 
 import importlib
 import warnings
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 
