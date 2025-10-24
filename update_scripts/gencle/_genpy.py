@@ -89,6 +89,29 @@ def _convert_cpp_name_to_python(name: str) -> str:
     return name
 
 
+# def _convert_cpp_type_to_python(type: str) -> str:
+#     """Convert C++ type to Python type.
+
+#     Parameters
+#     ----------
+#     type : str
+#         C++ type.
+
+#     Returns
+#     -------
+#     str
+#         Python type.
+#     """
+#     type_mapping = {
+#         "Array::Pointer": "Image",
+#         "Device::Pointer": "Device",
+#         "std::vector": "list",
+#         "std::vector<Array::Pointer>": "list[Image]",
+#         "std::string": "str",
+#         "StatisticsMap": "dict",
+#     }
+#     return next((new for old, new in type_mapping.items() if old in type), type)
+
 def _convert_cpp_type_to_python(type: str) -> str:
     """Convert C++ type to Python type.
 
@@ -102,16 +125,30 @@ def _convert_cpp_type_to_python(type: str) -> str:
     str
         Python type.
     """
+    # Strip whitespace
+    type = type.strip()
+    
+    # Exact matches first (order matters for specificity)
     type_mapping = {
         "Array::Pointer": "Image",
         "Device::Pointer": "Device",
-        "std::vector": "list",
         "std::vector<Array::Pointer>": "list[Image]",
+        "std::vector": "list",
         "std::string": "str",
         "StatisticsMap": "dict",
     }
-    return next((new for old, new in type_mapping.items() if old in type), type)
-
+    
+    # Check for exact match first
+    if type in type_mapping:
+        return type_mapping[type]
+    
+    # Check for partial matches (for complex types)
+    for cpp_type, python_type in type_mapping.items():
+        if cpp_type in type:
+            return python_type
+    
+    # Return original type if no mapping found
+    return type
 
 def _convert_argument_from_cpp_to_python(parameter: dict) -> dict:
     """Convert argument from C++ to Python.
