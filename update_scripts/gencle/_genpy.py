@@ -262,7 +262,7 @@ def {function_name}(
     {python_parameters_str}
 ) -> {return_type}:
     {docstring_str}
-    return clic._{function_name}({arguments_str})
+    return _get_backend()._{function_name}({arguments_str})
 """
 
     function_name = function_dict["name"].replace("_func", "").strip()
@@ -352,10 +352,10 @@ from typing import Optional
 import numpy as np
 
 from ._array import Image
+from ._backend import _get_backend
 from ._core import Device
 from ._decorators import plugin_function
 
-clic = importlib.import_module('._pyclesperanto', package='pyclesperanto')
 
 {python_functions_str}
 
