@@ -19,13 +19,15 @@ def _parse_param_tag(line:str) -> dict:
     # get description (text between name and first brackets)
     description = line.split('[')[0].split(name)[1].strip()
 
-    # extract the string between the brackets in the line (if any)
-    info = line.split('[')[1]
-    info = info.split(']')[0]
+    # extract the string between the outermost brackets in the line (if any)
+    # use rfind so inner lists such as [1, 2, 3] in default values are preserved
+    info_start = line.find('[')
+    info_end = line.rfind(']')
+    info = line[info_start + 1:info_end] if info_start != -1 and info_end != -1 and info_end > info_start else ''
 
-    # default value is in between parenthesis
-    default_value = re.findall(r"\(.*\)", info)
-    default_value = default_value[0].split(" ")[2] if default_value else ''
+    # default value is expected as: ( = value )
+    default_match = re.search(r"\(\s*=\s*(.*?)\s*\)", info)
+    default_value = default_match.group(1).strip() if default_match else ''
     # type is the list of words between the first word and the parenthesis (if any)
     param_type = info.split("(")[0].strip()
     return {'name' : name, 'type' : param_type, 'default_value' : default_value, 'description': description}
