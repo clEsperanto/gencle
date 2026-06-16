@@ -14,10 +14,12 @@ def _parse_param_tag(line:str) -> dict:
         Dictionary with parsed param tag.
     """
     # param name is the first word of the line
-    name = line.split()[0]
+    tokens = line.split(maxsplit=1)
+    name = tokens[0] if tokens else ''
 
     # get description (text between name and first brackets)
-    description = line.split('[')[0].split(name)[1].strip()
+    before_bracket = line.split('[', 1)[0]
+    description = before_bracket[len(name):].strip() if name else before_bracket.strip()
 
     # extract the string between the outermost brackets in the line (if any)
     # use rfind so inner lists such as [1, 2, 3] in default values are preserved
@@ -26,10 +28,21 @@ def _parse_param_tag(line:str) -> dict:
     info = line[info_start + 1:info_end] if info_start != -1 and info_end != -1 and info_end > info_start else ''
 
     # default value is expected as: ( = value )
-    default_match = re.search(r"\(\s*=\s*(.*?)\s*\)", info)
-    default_value = default_match.group(1).strip() if default_match else ''
-    # type is the list of words between the first word and the parenthesis (if any)
-    param_type = info.split("(")[0].strip()
+    # slice until the last ')' so nested calls/lists/quotes are preserved
+    default_value = ''
+    default_start = re.search(r"\(\s*=", info)
+    if default_start:
+        default_end = info.rfind(")")
+        if default_end > default_start.end():
+            default_value = info[default_start.end():default_end].strip()
+        else:
+            default_value = info[default_start.end():].strip()
+
+    # type is the text inside brackets, excluding optional default wrapper
+    if default_start:
+        param_type = info[:default_start.start()].strip()
+    else:
+        param_type = info.strip()
     return {'name' : name, 'type' : param_type, 'default_value' : default_value, 'description': description}
 
 
