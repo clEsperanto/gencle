@@ -259,7 +259,7 @@ def _generate_deprecated_decorator(function_dict: dict) -> str:
 
     function_name = function_dict["name"].replace("_func", "").strip()
     full_message = f"{function_name}: {message}"
-    return f"@warnings.deprecated({full_message!r})\n"
+    return f"@deprecated({full_message!r})\n"
 
 
 def _generate_python_function(function_dict: dict) -> str:
@@ -370,6 +370,7 @@ from ._array import Image
 from ._backend import _get_backend
 from ._core import Device
 from ._decorators import plugin_function
+from ._utils import deprecated
 
 {python_functions_str}
 
