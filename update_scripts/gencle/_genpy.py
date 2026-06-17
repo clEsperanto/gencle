@@ -250,7 +250,10 @@ def _generate_deprecated_decorator(function_dict: dict) -> str:
     if not deprecation:
         return ""
 
-    message = deprecation.strip()
+    if isinstance(deprecation, list):
+        message = " ".join(deprecation).strip()
+    else:
+        message = deprecation.strip()
     if not message:
         return ""
 
