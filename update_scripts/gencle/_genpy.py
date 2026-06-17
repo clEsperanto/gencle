@@ -244,6 +244,21 @@ def _generate_decorator(function_dict: dict) -> str:
     return decorator_defines
 
 
+def _generate_deprecated_decorator(function_dict: dict) -> str:
+    """Generate the deprecation decorator line for a function, if needed."""
+    deprecation = function_dict.get("deprecation", {})
+    if not deprecation:
+        return ""
+
+    message = deprecation.strip()
+    if not message:
+        return ""
+
+    function_name = function_dict["name"].replace("_func", "").strip()
+    full_message = f"{function_name}: {message}"
+    return f"@warnings.deprecated({full_message!r})\n"
+
+
 def _generate_python_function(function_dict: dict) -> str:
     """Generate Python function code for a single function and return it as a string.
 
@@ -257,7 +272,7 @@ def _generate_python_function(function_dict: dict) -> str:
     str
         Python function code for a single function.
     """
-    _python_func_code = """@plugin_function{decorator}
+    _python_func_code = """{deprecation_decorator}@plugin_function{decorator}
 def {function_name}(
     {python_parameters_str}
 ) -> {return_type}:
@@ -269,6 +284,7 @@ def {function_name}(
     return_type = _convert_cpp_type_to_python(function_dict["return"])
     _docstring_str = _generate_function_docstring(function_dict)
     decorator = _generate_decorator(function_dict)
+    deprecation_decorator = _generate_deprecated_decorator(function_dict)
 
     arguments_list = []
     python_parameters_list = []
@@ -289,12 +305,9 @@ def {function_name}(
     python_parameters_str = ",\n\t".join(python_parameters_list)
     arguments_str = ", ".join(arguments_list)
 
-    # deprecation_warning = ''
-    # if len(function_dict['deprecation']) > 0:
-    #     deprecation_warning = f"\n\twarnings.warn(\"pyclesperanto.{function_name}: {function_dict['deprecation'][0]}\", DeprecationWarning,)"
-
     return _python_func_code.format(
         decorator=decorator,
+        deprecation_decorator=deprecation_decorator,
         function_name=function_name,
         python_parameters_str=python_parameters_str,
         return_type=return_type,
@@ -345,6 +358,7 @@ def generate_python_file(function_list: list, tier: int) -> str:
 # This code is auto-generated from CLIc 'cle::tier{tier}.hpp' file, do not edit manually.
 #
 
+import functools
 import importlib
 import warnings
 from typing import Optional
@@ -355,6 +369,19 @@ from ._array import Image
 from ._backend import _get_backend
 from ._core import Device
 from ._decorators import plugin_function
+
+
+def _deprecated(message: str):
+    '''Emit a deprecation warning when the wrapped function is called.'''
+    def _decorator(func):
+        @functools.wraps(func)
+        def _wrapper(*args, **kwargs):
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        return _wrapper
+
+    return _decorator
 
 
 {python_functions_str}
