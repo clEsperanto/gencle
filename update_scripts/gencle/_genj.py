@@ -29,6 +29,7 @@ def _cpp_function_parameters(parameters):
             "Device::Pointer": "DeviceJ *",
             "Array::Pointer": "ArrayJ *",
             "std::vector<Array::Pointer>": "std::vector<ArrayJ>",
+            "StatisticsMap": "std::unordered_map<std::string, std::vector<float>>",
         }
         for old, new in replacements.items():
             param_type = param_type.replace(old, new)
@@ -186,6 +187,7 @@ def _java_function_parameters(parameters):
             "std::vector<int>": "ArrayList<Integer>",
             "std::vector<ArrayJ>": "ArrayList<ArrayJ>",
             "bool": "boolean",
+            "StatisticsMap": "HashMap<String, ArrayList<Float>>",
         }
         for old, new in replacements.items():
             param_type = param_type.replace(old, new)
@@ -208,7 +210,11 @@ def _java_call_parameters(parameters):
         if default_value == "None" and _is_pointer_type(param_type):
             return f"{param_name} == null ? null : {param_name}{param_call}"
         if param_type.find("std::vector<float>") != -1:
-            return f"Utils.toVector({param_name})"
+            return f"Utils.toFloatVector({param_name})"
+        if param_type.find("std::vector<int>") != -1:
+            return f"Utils.toIntVector({param_name})"
+        if param_type.find("StatisticsMap") != -1:
+            return f"Utils.toFloatVectorMap({param_name})"
         return f"{param_name}{param_call}"
 
     native_call = []
@@ -272,6 +278,7 @@ def _generate_java_docstring(function_dict):
             "std::vector<float>": "ArrayList<Float>",
             "std::vector<int>": "ArrayList<Integer>",
             "std::vector<ArrayJ>": "ArrayList<ArrayJ>",
+            "StatisticsMap": "HashMap<String, ArrayList<Float>>",
             "bool": "boolean",
         }
         for old, new in replacements.items():
