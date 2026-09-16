@@ -1,6 +1,8 @@
 # This module is in charge of generating the source code for the clesperanto Python bindings.
 
-import textwrap, re
+import json
+import re
+import textwrap
 
 
 def _generate_function_wrapper(function_dict: dict, tier: int) -> str:
@@ -48,7 +50,7 @@ def generate_wrapper_file(function_list: list, tier: int) -> str:
         Pybind11 wrapper code for a single tier.
     """
     _wrapper_file_code = """// this code is auto-generated, do not edit manually
-    
+
 #include "pycle_wrapper.hpp"
 #include "tier{tier}.hpp"
 
@@ -233,15 +235,31 @@ def _generate_decorator(function_dict: dict) -> str:
     )
     category_defines = f"categories=[{category}]" if category else ""
     priority_defines = f"priority={priority}" if priority else ""
+    args = [a for a in (category_defines, priority_defines) if a]
+    if not args:
+        return ""
 
-    decorator_defines = ""
-    if len(category_defines) > 0 and len(priority_defines) > 0:
-        decorator_defines = f"({category_defines}, {priority_defines})"
-    elif len(category_defines) > 0:
-        decorator_defines = f"({category_defines})"
-    elif len(priority_defines) > 0:
-        decorator_defines = f"({priority_defines})"
-    return decorator_defines
+    single_line = f"@plugin_function({', '.join(args)})"
+    if len(single_line) <= _MAX_LINE_LENGTH:
+        return f"({', '.join(args)})"
+
+    trailing_comma = "," if len(args) > 1 else ""
+    lines = ["("]
+    for i, arg in enumerate(args):
+        is_last = i == len(args) - 1
+        comma = trailing_comma if is_last else ","
+        candidate = f"    {arg}"
+        if len(candidate) <= _MAX_LINE_LENGTH:
+            lines.append(candidate + comma)
+        else:
+            # only a categories=[...] argument can be too long here
+            name, items_part = arg.split("[", 1)
+            items = [i.strip() for i in items_part.rstrip("]").split(",") if i.strip()]
+            lines.append(f"    {name}[")
+            lines.extend(f"        {item}," for item in items)
+            lines.append("    ]" + comma)
+    lines.append(")")
+    return "\n".join(lines)
 
 
 def _generate_deprecated_decorator(function_dict: dict) -> str:
@@ -259,7 +277,80 @@ def _generate_deprecated_decorator(function_dict: dict) -> str:
 
     function_name = function_dict["name"].replace("_func", "").strip()
     full_message = f"{function_name}: {message}"
-    return f"@deprecated({full_message!r})\n"
+    quoted_message = json.dumps(full_message)
+
+    single_line = f"@deprecated({quoted_message})"
+    if len(single_line) <= _MAX_LINE_LENGTH:
+        return f"{single_line}\n"
+    return f"@deprecated(\n    {quoted_message}\n)\n"
+
+
+_MAX_LINE_LENGTH = 88
+
+
+def _format_signature(function_name: str, parameters: list, return_type: str) -> str:
+    """Format a function signature, collapsing it to one line when it fits.
+
+    Mimics black's line-length rule: a signature that fits within
+    ``_MAX_LINE_LENGTH`` is kept on a single line, otherwise it is split
+    with one parameter per line and a trailing comma.
+
+    Parameters
+    ----------
+    function_name : str
+        Name of the function.
+    parameters : list
+        List of formatted "name: type = default" parameter strings.
+    return_type : str
+        Return type annotation.
+
+    Returns
+    -------
+    str
+        Formatted "def ...(...) -> ...:" signature.
+    """
+    single_line = f"def {function_name}({', '.join(parameters)}) -> {return_type}:"
+    if len(single_line) <= _MAX_LINE_LENGTH and "\n" not in single_line:
+        return single_line
+
+    parameters_one_line = f"    {', '.join(parameters)}"
+    if len(parameters_one_line) <= _MAX_LINE_LENGTH:
+        return f"def {function_name}(\n{parameters_one_line}\n) -> {return_type}:"
+
+    joined_parameters = ",\n    ".join(parameters)
+    return f"def {function_name}(\n    {joined_parameters},\n) -> {return_type}:"
+
+
+def _format_return_call(function_name: str, arguments: list) -> str:
+    """Format the backend call in the ``return`` statement.
+
+    Mimics black's line-length rule: the call is kept on a single line
+    when it fits, otherwise its arguments are moved to an indented block,
+    either on one line or one argument per line if still too long.
+
+    Parameters
+    ----------
+    function_name : str
+        Name of the function (without the leading underscore).
+    arguments : list
+        List of formatted argument strings.
+
+    Returns
+    -------
+    str
+        Formatted "return _get_backend()._name(...)" statement.
+    """
+    call_prefix = f"return _get_backend()._{function_name}("
+    single_line = f"    {call_prefix}{', '.join(arguments)})"
+    if len(single_line) <= _MAX_LINE_LENGTH:
+        return single_line
+
+    arguments_one_line = f"        {', '.join(arguments)}"
+    if len(arguments_one_line) <= _MAX_LINE_LENGTH:
+        return f"    {call_prefix}\n{arguments_one_line}\n    )"
+
+    joined_arguments = ",\n        ".join(arguments)
+    return f"    {call_prefix}\n        {joined_arguments},\n    )"
 
 
 def _generate_python_function(function_dict: dict) -> str:
@@ -276,11 +367,9 @@ def _generate_python_function(function_dict: dict) -> str:
         Python function code for a single function.
     """
     _python_func_code = """{deprecation_decorator}@plugin_function{decorator}
-def {function_name}(
-    {python_parameters_str}
-) -> {return_type}:
+{signature}
     {docstring_str}
-    return _get_backend()._{function_name}({arguments_str})
+{return_call}
 """
 
     function_name = function_dict["name"].replace("_func", "").strip()
@@ -295,8 +384,8 @@ def {function_name}(
         p = _convert_argument_from_cpp_to_python(p)
         param_name = p["name"]
         param_type = p["type"]
-        default = p["default_value"].strip()
-        default_value = f" ={default}" if len(default) > 0 else ""
+        default = p["default_value"].strip().replace("'", '"')
+        default_value = f" = {default}" if len(default) > 0 else ""
         python_parameters_list.append(f"{param_name}: {param_type}{default_value}")
         arguments_list.append(
             param_name
@@ -305,17 +394,16 @@ def {function_name}(
         )
     # put the first element of python_parameters_list at the end of the list
     python_parameters_list.append(python_parameters_list.pop(0))
-    python_parameters_str = ",\n\t".join(python_parameters_list)
-    arguments_str = ", ".join(arguments_list)
+
+    signature = _format_signature(function_name, python_parameters_list, return_type)
+    return_call = _format_return_call(function_name, arguments_list)
 
     return _python_func_code.format(
         decorator=decorator,
         deprecation_decorator=deprecation_decorator,
-        function_name=function_name,
-        python_parameters_str=python_parameters_str,
-        return_type=return_type,
+        signature=signature,
         docstring_str=_docstring_str,
-        arguments_str=arguments_str,
+        return_call=return_call,
     ).strip()
 
 
@@ -336,9 +424,13 @@ def generate_api_functions_list(function_list: list) -> str:
     function_names = [
         f'"{f["name"].replace("_func", "").strip()}"' for f in function_list
     ]
-    # generate a string __all__ = [ "func1", "func2", ... ]
-    api_functions_list = ", ".join(function_names)
-    return f"__all__ = [{api_functions_list}]"
+    # generate a string __all__ = [ "func1", "func2", ... ], one item per line
+    # if it does not fit on a single line (matches black's line-length rule)
+    single_line = f"__all__ = [{', '.join(function_names)}]"
+    if len(single_line) <= _MAX_LINE_LENGTH:
+        return single_line
+    joined_names = ",\n    ".join(function_names)
+    return f"__all__ = [\n    {joined_names},\n]"
 
 
 
@@ -372,13 +464,15 @@ from ._core import Device
 from ._decorators import plugin_function
 from ._utils import deprecated
 
+
 {python_functions_str}
+
 
 {api_functions_list}
 """
     api_functions_list = generate_api_functions_list(function_list)
     python_functions_list = [_generate_python_function(f) for f in function_list]
-    python_functions_str = "\n\n".join(python_functions_list)
+    python_functions_str = "\n\n\n".join(python_functions_list)
     _python_code = _python_code.format(
         tier=tier, python_functions_str=python_functions_str, api_functions_list=api_functions_list
     )

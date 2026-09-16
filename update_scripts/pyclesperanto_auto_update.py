@@ -1,5 +1,7 @@
+import os
+import sys
+
 import gencle
-import os, sys
 
 # OUTPUT_REPO = sys.argv[1]
 # VERSION_TAG = sys.argv[2]

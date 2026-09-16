@@ -1,4 +1,6 @@
-import os, glob, json
+import glob
+import json
+import os
 import urllib.request
 
 from typing import List, Tuple
@@ -145,6 +147,26 @@ def write_json_file(filepath: str, json_data: dict) -> None:
         return None
 
 
+def _normalize_content(content: str) -> str:
+    """Normalize generated content to satisfy common pre-commit hooks.
+
+    Strips trailing whitespace from every line (trailing-whitespace hook)
+    and ensures the file ends with exactly one newline (end-of-file-fixer hook).
+
+    Parameters
+    ----------
+    content : str
+        Content to normalize.
+
+    Returns
+    -------
+    str
+        Normalized content.
+    """
+    lines = [line.rstrip() for line in content.splitlines()]
+    return "\n".join(lines).strip("\n") + "\n"
+
+
 def write_file(
     filepath: str, content: str, create_folder: bool = True, overwrite: bool = False
 ) -> bool:
@@ -164,6 +186,8 @@ def write_file(
     if not overwrite and os.path.exists(filepath):
         backup_filepath = filepath + ".backup"
         os.rename(filepath, backup_filepath)
+
+    content = _normalize_content(content)
 
     try:
         with open(filepath, "w") as file:

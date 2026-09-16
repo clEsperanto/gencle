@@ -104,7 +104,7 @@ package net.clesperanto;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;    
+import java.util.Map;
 
 import net.clesperanto.core.ArrayJ;
 import net.clesperanto.kernels.*;
