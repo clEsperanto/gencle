@@ -5,6 +5,10 @@ from ._io import (
     read_file,
     write_json_file,
     write_file,
+    read_class_overrides_config,
+    list_declared_classes,
+    extract_class_block,
+    DEFAULT_NAMESPACE_CLASS_OVERRIDES,
 )
 
 from ._doxygen import parse_doxygen_to_json, clear_doxygen_blocks
@@ -14,6 +18,7 @@ from ._genj import (
     generate_native_tier_code,
     merger_classes_in_header,
     generate_java_class,
+    check_class_regression,
 )
 
 from ._genclij import (

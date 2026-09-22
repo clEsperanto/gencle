@@ -1,3 +1,5 @@
+from ._io import list_declared_classes
+
 # This module is in charge of generating the source code for the clesperanto Java bindings.
 
 #
@@ -153,6 +155,58 @@ def merger_classes_in_header(header_list):
 
     header_str = "\n".join(header_list)
     return header_file.format(header_str=header_str)
+
+
+def check_class_regression(old_header, new_header, allowed_removals=None):
+    """Fail loudly if a previously-declared top-level class disappeared.
+
+    This guards against regenerating kernelj.hpp from CLIc tiers alone and
+    silently dropping hand-maintained/overridden classes (e.g. FFT,
+    Transform) that do not map 1:1 to a "TierN" namespace.
+
+    Parameters
+    ----------
+    old_header : str
+        Contents of the previously generated/committed kernelj.hpp. Pass an
+        empty string (or None) if there is no previous file (e.g. first run).
+    new_header : str
+        Contents of the newly regenerated kernelj.hpp.
+    allowed_removals : list of str, optional
+        Class names that are expected/intended to be removed in this update,
+        and should therefore not be treated as a regression.
+
+    Returns
+    -------
+    list of str
+        Names of classes that disappeared but were explicitly allowed to be
+        removed.
+
+    Raises
+    ------
+    ValueError
+        If one or more classes present in `old_header` are missing from
+        `new_header` without being listed in `allowed_removals`.
+    """
+    allowed_removals = set(allowed_removals or [])
+
+    old_classes = set(list_declared_classes(old_header))
+    new_classes = set(list_declared_classes(new_header))
+
+    missing_classes = old_classes - new_classes
+    unexpected_removals = missing_classes - allowed_removals
+
+    if unexpected_removals:
+        raise ValueError(
+            "gencle: Regression detected in kernelj.hpp generation: "
+            f"the following classes disappeared without being listed as an "
+            f"intended removal: {sorted(unexpected_removals)}. "
+            "If this removal is intentional, add the class name(s) to "
+            "'allowed_removals' in class_overrides.json. Otherwise, make "
+            "sure the corresponding namespace is declared in "
+            "'namespace_class_overrides' so it survives regeneration."
+        )
+
+    return sorted(missing_classes & allowed_removals)
 
 
 #

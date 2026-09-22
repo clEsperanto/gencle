@@ -1,9 +1,126 @@
 import glob
 import json
 import os
+import re
 import urllib.request
 
-from typing import List, Tuple
+from typing import Dict, List, Tuple
+
+
+# Namespaces in CLIc that do not follow the "tierN" naming convention but are
+# still wrapped as their own named class in clesperantoj (see kernelj.hpp).
+# This is the built-in fallback used when the destination repository does not
+# ship its own override file (see `read_class_overrides_config`).
+DEFAULT_NAMESPACE_CLASS_OVERRIDES: Dict[str, str] = {
+    "fft": "FFT",
+    "transform": "Transform",
+}
+
+# Relative path, inside the destination (e.g. clesperantoj) repository, where a
+# custom class-override/allowlist file can be placed to extend or replace
+# DEFAULT_NAMESPACE_CLASS_OVERRIDES without requiring a change in gencle itself.
+CLASS_OVERRIDES_CONFIG_PATH = os.path.join(
+    "native", "clesperantoj", "include", "class_overrides.json"
+)
+
+
+def read_class_overrides_config(dst_repo: str) -> Dict[str, object]:
+    """Read the namespace-to-class override/allowlist configuration.
+
+    This lets a destination repository (e.g. clesperantoj) declare that a
+    given CLIc namespace (e.g. ``fft``) should keep being generated as a
+    custom named class (e.g. ``FFT``) instead of being merged into whichever
+    ``TierN`` it happens to live under, and which top-level classes must be
+    treated as protected (i.e. never silently dropped) during regeneration.
+
+    The configuration file is optional. When absent, a built-in default
+    (`DEFAULT_NAMESPACE_CLASS_OVERRIDES`) is used.
+
+    Expected JSON schema::
+
+        {
+            "namespace_class_overrides": {"fft": "FFT", "transform": "Transform"},
+            "allowed_removals": []
+        }
+
+    Parameters
+    ----------
+    dst_repo : str
+        Path to the destination repository folder (e.g. clesperantoj).
+
+    Returns
+    -------
+    dict
+        Dictionary with keys ``namespace_class_overrides`` (dict[str, str])
+        and ``allowed_removals`` (list[str]).
+    """
+    config_filepath = os.path.join(dst_repo, CLASS_OVERRIDES_CONFIG_PATH)
+
+    namespace_class_overrides = dict(DEFAULT_NAMESPACE_CLASS_OVERRIDES)
+    allowed_removals = []
+
+    if os.path.exists(config_filepath):
+        try:
+            with open(config_filepath, "r") as file:
+                data = json.load(file)
+            namespace_class_overrides.update(
+                data.get("namespace_class_overrides", {})
+            )
+            allowed_removals = data.get("allowed_removals", [])
+        except (json.JSONDecodeError, OSError) as error:
+            print(
+                f"gencle: Could not read class overrides config at {config_filepath}: {error}"
+            )
+
+    return {
+        "namespace_class_overrides": namespace_class_overrides,
+        "allowed_removals": allowed_removals,
+    }
+
+
+def list_declared_classes(header_content: str) -> List[str]:
+    """List the names of all top-level classes declared in a kernelj.hpp-like header.
+
+    Parameters
+    ----------
+    header_content : str
+        Contents of the header file.
+
+    Returns
+    -------
+    list of str
+        Names of the declared classes, in order of appearance.
+    """
+    if not header_content:
+        return []
+    return re.findall(r"^\s*class\s+(\w+)", header_content, flags=re.MULTILINE)
+
+
+def extract_class_block(header_content: str, class_name: str) -> str:
+    """Extract the full ``class Name { ... };`` declaration block from a header.
+
+    Parameters
+    ----------
+    header_content : str
+        Contents of the header file to search in.
+    class_name : str
+        Name of the class to extract.
+
+    Returns
+    -------
+    str or None
+        The full class declaration block (including trailing semicolon), or
+        None if the class could not be found.
+    """
+    if not header_content:
+        return None
+    pattern = re.compile(
+        r"class\s+" + re.escape(class_name) + r"\s*\{.*?\}\s*;", re.DOTALL
+    )
+    match = pattern.search(header_content)
+    if not match:
+        return None
+    return match.group(0)
 
 
 def read_clej_tier_from_github(

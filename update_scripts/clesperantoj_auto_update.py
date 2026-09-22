@@ -22,6 +22,14 @@ def update_tier_code(dst_repo: str, src_repo: str, tag: str):
     java_folder = os.path.join(dst_repo, "src/main/java/net/clesperanto/kernels")
     source_folder = os.path.join(dst_repo, "native/clesperantoj/src")
     header_folder = os.path.join(dst_repo, "native/clesperantoj/include")
+    header_filepath = os.path.join(header_folder, f"kernelj.hpp")
+
+    # Keep a copy of the currently committed header, so we can:
+    #  - carry forward the declarations of hand-maintained/overridden classes
+    #    (e.g. FFT, Transform) that do not map 1:1 to a CLIc "tierN" namespace
+    #  - detect and fail on any unexpected disappearance of a previously
+    #    declared top-level class (regression check)
+    old_header_code = gencle.read_file(header_filepath) or ""
 
     code_list, tier_list = gencle.read_clic_tier_from_github(repo=src_repo, branch=tag)
     header_file = []
@@ -31,8 +39,33 @@ def update_tier_code(dst_repo: str, src_repo: str, tag: str):
         source_filepath = os.path.join(source_folder, f"tier{tier}j.cpp")
         gencle.write_file(source_filepath, code, overwrite=True)
         header_file.append(header)
-    header_filepath = os.path.join(header_folder, f"kernelj.hpp")
+
+    # Namespaces such as cle::fft or cle::transform are wrapped as their own
+    # named class (FFT, Transform, ...) instead of being folded into whichever
+    # tier they live under in CLIc. These classes are hand-maintained (see
+    # src/fft.cpp, src/transform.cpp and their Java counterparts) so their
+    # declaration is preserved as-is from the previously committed header,
+    # rather than being (re)generated from the tier list.
+    overrides_config = gencle.read_class_overrides_config(dst_repo)
+    for class_name in sorted(set(overrides_config["namespace_class_overrides"].values())):
+        class_block = gencle.extract_class_block(old_header_code, class_name)
+        if class_block:
+            header_file.append(class_block)
+        else:
+            print(
+                f"gencle: Warning: overridden class '{class_name}' is configured "
+                "but was not found in the current kernelj.hpp; skipping it."
+            )
+
     header_code = gencle.merger_classes_in_header(header_file)
+
+    # Fail loudly (non-zero exit) if a top-level class present before this
+    # update silently disappeared, instead of letting the C++ build break
+    # downstream with "use of undeclared identifier" errors.
+    gencle.check_class_regression(
+        old_header_code, header_code, overrides_config["allowed_removals"]
+    )
+
     gencle.write_file(header_filepath, header_code, overwrite=True)
 
     for tier, code in zip(tier_list, code_list):
