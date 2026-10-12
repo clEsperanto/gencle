@@ -128,7 +128,34 @@ def parse_doxygen_to_json(code: str) -> list:
         List of parsed doxygen blocks.
     """
     blocks = _extract_doxygen_blocks(code)
-    return [_read_doxygen_block(b) for b in blocks]
+    functions = [_read_doxygen_block(b) for b in blocks]
+    for function, block in zip(functions, blocks):
+        function["signature"] = _extract_declaration_after_block(code, block)
+    return functions
+
+
+def _extract_declaration_after_block(code: str, block: str) -> str:
+    """Extract the C++ declaration following a doxygen block.
+
+    The declaration is the code between the end of the block and the first `;` or `{`.
+
+    Parameters
+    ----------
+    code : str
+        Code containing the block.
+    block : str
+        Doxygen block.
+
+    Returns
+    -------
+    str
+        Declaration as a single line, or empty string if not found.
+    """
+    start = code.find(block)
+    if start == -1:
+        return ''
+    declaration = re.match(r"[^;{]*", code[start + len(block):]).group(0)
+    return " ".join(declaration.split())
 
 
 def clear_doxygen_blocks(code: str) -> str:

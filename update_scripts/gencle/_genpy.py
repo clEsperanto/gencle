@@ -3,6 +3,30 @@
 import json
 import re
 import textwrap
+import warnings
+
+# C++ types that may hold Python objects, making it unsafe to release the GIL during the call
+_GIL_UNSAFE_PATTERNS = ("py::", "pybind11::", "std::function")
+
+
+def _is_gil_release_safe(function_dict: dict) -> bool:
+    """Check that a function never touches Python objects, so the GIL can be released.
+
+    Both the C++ declaration and the doxygen types are checked.
+
+    Parameters
+    ----------
+    function_dict : dict
+        Function dictionary (json-style).
+
+    Returns
+    -------
+    bool
+        True if no type in the function signature can hold a Python object.
+    """
+    types = [function_dict.get("signature", ""), function_dict.get("return", "")]
+    types += [p["type"] for p in function_dict["parameters"]]
+    return not any(pattern in t for t in types for pattern in _GIL_UNSAFE_PATTERNS)
 
 
 def _generate_function_wrapper(function_dict: dict, tier: int) -> str:
@@ -21,16 +45,28 @@ def _generate_function_wrapper(function_dict: dict, tier: int) -> str:
         Pybind11 wrapper code for a single function.
     """
     _wrapper_func_code = """m.def(\"_{name}\", &cle::tier{tier}::{name}_func, "Call cle::tier{tier}::{name}_func from C++ CLIc.",
-    py::return_value_policy::automatic_reference,
+    py::return_value_policy::automatic_reference,{gil_release}
     {parameters_bindings});"""
 
     name = function_dict["name"].replace("_func", "").strip()
+
+    # release the GIL during the CLIc call, unless the signature could hold a Python object
+    gil_release = "\n    PYCLE_RELEASE_GIL,"
+    if not _is_gil_release_safe(function_dict):
+        warnings.warn(
+            f"gencle: cle::tier{tier}::{name}_func signature contains a Python-related type "
+            f"({', '.join(_GIL_UNSAFE_PATTERNS)}), binding generated without GIL release."
+        )
+        gil_release = ""
 
     # for each parameter inf function_dict["parameters"], generate a string like 'py::arg("{parameter_name}")'
     parameters_name = [p["name"] for p in function_dict["parameters"]]
     parameters_bindings = ", ".join([f'py::arg("{p}")' for p in parameters_name])
     return _wrapper_func_code.format(
-        name=name, tier=tier, parameters_bindings=parameters_bindings
+        name=name,
+        tier=tier,
+        gil_release=gil_release,
+        parameters_bindings=parameters_bindings,
     ).strip()
 
 
@@ -55,6 +91,15 @@ def generate_wrapper_file(function_list: list, tier: int) -> str:
 #include "tier{tier}.hpp"
 
 namespace py = pybind11;
+
+// release the GIL during CLIc calls, build with -DPYCLE_NO_GIL_RELEASE to keep it held
+#ifndef PYCLE_RELEASE_GIL
+#  ifndef PYCLE_NO_GIL_RELEASE
+#    define PYCLE_RELEASE_GIL py::call_guard<py::gil_scoped_release>()
+#  else
+#    define PYCLE_RELEASE_GIL py::call_guard<>()
+#  endif
+#endif
 
 auto tier{tier}_(py::module &m) -> void {{
 {list_function_code}
